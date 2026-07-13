@@ -1,37 +1,52 @@
-/** Small formatting helpers (no external date lib needed). */
+/** Date/label formatting. All dates are 'YYYY-MM-DD' strings in JST. */
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-/** '2026-06-28' -> 'Sat 28 Jun'. Parsed as local date (no TZ shift). */
-export function formatDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  if (!y || !m || !d) return iso;
-  const date = new Date(y, m - 1, d);
-  return `${WEEKDAYS[date.getDay()]} ${d} ${MONTHS[m - 1]}`;
+function parts(date: string): { y: number; m: number; d: number; dow: number } {
+  const y = Number(date.slice(0, 4));
+  const m = Number(date.slice(5, 7));
+  const d = Number(date.slice(8, 10));
+  return { y, m, d, dow: new Date(y, m - 1, d).getDay() };
 }
 
-/** '2026-06-28' -> 'Mon 23 Jun' style short date, or 'Never' for null. */
-export function formatShortDate(iso: string | null | undefined): string {
-  if (!iso) return 'Never';
-  return formatDate(iso.slice(0, 10));
+/** '2026-06-23' -> 'Mon 23 Jun' */
+export function formatShortDate(date: string): string {
+  const { m, d, dow } = parts(date);
+  return `${DAYS[dow]} ${d} ${MONTHS[m - 1]}`;
 }
 
-/** Run dates: '28 Jun – 18 Jul', or single date, or '' if none. */
-export function formatRun(from: string | null, to: string | null): string {
-  const f = from ? formatDate(from).replace(/^\w+ /, '') : '';
-  const t = to ? formatDate(to).replace(/^\w+ /, '') : '';
-  if (f && t) return `${f} – ${t}`;
-  return f || t || '';
+/** '2026-06-28' -> 'Sat 28' (date chips) */
+export function formatDayChip(date: string): string {
+  const { d, dow } = parts(date);
+  return `${DAYS[dow]} ${d}`;
 }
 
-/** Whole days since an ISO timestamp; null if missing. */
-export function daysSince(iso: string | null | undefined): number | null {
-  if (!iso) return null;
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return null;
-  return Math.floor((Date.now() - then) / 86_400_000);
+/** '2026-06-27' -> '27 Jun' */
+export function formatDayMonth(date: string): string {
+  const { m, d } = parts(date);
+  return `${d} ${MONTHS[m - 1]}`;
+}
+
+/** Run dates line: '27 Jun – 24 Jul', or 'From 8 Aug' for upcoming films. */
+export function formatRun(
+  runFrom: string | null,
+  runTo: string | null,
+  status: 'now_showing' | 'upcoming',
+): string | null {
+  if (!runFrom) return null;
+  if (status === 'upcoming') return `From ${formatDayMonth(runFrom)}`;
+  if (runTo && runTo !== runFrom) return `${formatDayMonth(runFrom)} – ${formatDayMonth(runTo)}`;
+  return formatDayMonth(runFrom);
+}
+
+/** ISO timestamp -> 'Mon 23 Jun' (scrape-log labels). */
+export function formatTimestampDate(iso: string): string {
+  const d = new Date(iso);
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+/** Today in JST as 'YYYY-MM-DD' (AEON schedules run on Japan time). */
+export function todayJst(): string {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }

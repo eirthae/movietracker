@@ -1,26 +1,17 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+
+export const hasBackend = Boolean(url && key);
 
 /**
- * Supabase client (read-only via the publishable key — RLS allows SELECT only).
- * Values come from app config / env via Expo's EXPO_PUBLIC_* convention, so they
- * are baked into the bundle at build time. The publishable key is client-safe.
+ * With no .env the app runs on bundled mock data so the UI can be previewed
+ * before the backend is live; `?mock` in the URL forces it.
  */
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+export const USE_MOCK =
+  !hasBackend || new URLSearchParams(window.location.search).has('mock');
 
-if (!supabaseUrl || !supabaseKey) {
-  // Fail loud in dev rather than silently returning no data.
-  console.warn(
-    '[supabase] Missing EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY — check your .env',
-  );
-}
-
-export const supabase = createClient(supabaseUrl ?? '', supabaseKey ?? '', {
-  auth: {
-    storage: AsyncStorage,
-    persistSession: false, // no auth in this app
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
-  },
-});
+export const supabase: SupabaseClient = hasBackend
+  ? createClient(url!, key!)
+  : (null as unknown as SupabaseClient);

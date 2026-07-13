@@ -1,13 +1,21 @@
 /**
- * manage-cinema — add or delete a cinema from the app.
+ * manage-cinema — validate, add, or delete a cinema from the app.
  *
- *   POST { action: 'add', url }   -> parse slug, validate against AEON,
- *                                    look up name, insert, scrape immediately
- *   POST { action: 'delete', id } -> delete cinema (films/screenings cascade)
+ *   POST { action: 'validate', url }      -> parse slug, check the schedule
+ *                                            endpoint exists, look up the name,
+ *                                            count films (Add Cinema preview)
+ *   POST { action: 'add', url, name? }    -> validate, insert, scrape immediately
+ *   POST { action: 'delete', id }         -> delete cinema (films cascade)
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { cinemaExists, fetchCinema, lookupCinemaName, parseSlug } from '../_shared/aeon.ts';
+import {
+  cinemaExists,
+  countFilms,
+  fetchCinema,
+  lookupCinemaName,
+  parseSlug,
+} from '../_shared/aeon.ts';
 import { persistCinema } from '../_shared/persist.ts';
 
 const cors = {
@@ -37,12 +45,27 @@ Deno.serve(async (req) => {
     return json({ error: 'Invalid request body.' }, 400);
   }
 
-  // ---- DELETE ----
-  if (payload?.action === 'delete') {
-    if (!payload.id) return json({ error: 'Missing cinema id.' }, 400);
-    const { error } = await supabase.from('cinemas').delete().eq('id', payload.id);
-    if (error) return json({ error: error.message }, 500);
-    return json({ ok: true });
+  // ---- VALIDATE (Add Cinema preview card) ----
+  if (payload?.action === 'validate') {
+    const slug = parseSlug(String(payload.url ?? ''));
+    if (!slug) {
+      return json({ error: 'Could not read a cinema slug from that URL.' }, 400);
+    }
+    if (!(await cinemaExists(slug))) {
+      return json({ error: 'No AEON schedule found for that URL.' }, 404);
+    }
+    const { data: dupe } = await supabase
+      .from('cinemas')
+      .select('id')
+      .eq('id', slug)
+      .maybeSingle();
+    if (dupe) return json({ error: 'That cinema is already added.' }, 409);
+
+    const [name, films] = await Promise.all([
+      lookupCinemaName(slug),
+      countFilms(slug).catch(() => 0),
+    ]);
+    return json({ ok: true, slug, name: name ?? `AEON Cinema ${slug}`, films });
   }
 
   // ---- ADD ----
@@ -51,7 +74,9 @@ Deno.serve(async (req) => {
     if (!slug) {
       return json({ error: 'Could not read a cinema slug from that URL.' }, 400);
     }
-
+    if (!(await cinemaExists(slug))) {
+      return json({ error: 'No AEON schedule found for that URL.' }, 404);
+    }
     const { data: dupe } = await supabase
       .from('cinemas')
       .select('id')
@@ -59,57 +84,58 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (dupe) return json({ error: 'That cinema is already added.' }, 409);
 
-    if (!(await cinemaExists(slug))) {
-      return json(
-        { error: `No AEON schedule found for "${slug}". Check the URL.` },
-        404,
-      );
-    }
+    const name =
+      (typeof payload.name === 'string' && payload.name.trim()) ||
+      (await lookupCinemaName(slug)) ||
+      `AEON Cinema ${slug}`;
 
-    const name = (await lookupCinemaName(slug)) ?? `AEON Cinema ${slug}`;
-
-    // Next display_order.
     const { data: maxRow } = await supabase
       .from('cinemas')
       .select('display_order')
       .order('display_order', { ascending: false })
       .limit(1)
       .maybeSingle();
-    const display_order = (maxRow?.display_order ?? -1) + 1;
 
-    const { error: insErr } = await supabase.from('cinemas').insert({
+    const cinema = {
       id: slug,
       name,
-      url_mobile: `https://cinema.aeoncinema.com/wm/${slug}/`,
-      display_order,
-    });
+      schedule_url: `https://cinema.aeoncinema.com/wm/${slug}/`,
+      display_order: (maxRow?.display_order ?? -1) + 1,
+    };
+    const { error: insErr } = await supabase.from('cinemas').insert(cinema);
     if (insErr) return json({ error: insErr.message }, 500);
 
-    // Scrape immediately so films show up right away.
-    const logId = (
-      await supabase
-        .from('scrape_log')
-        .insert({ cinema_id: slug, started_at: new Date().toISOString() })
-        .select('id')
-        .single()
-    ).data?.id;
+    // Scrape immediately so the new tab has data right away.
+    const { data: logRow } = await supabase
+      .from('scrape_log')
+      .insert({ cinema_id: slug, started_at: new Date().toISOString() })
+      .select('id')
+      .single();
     try {
       const films = await fetchCinema(slug);
       const { filmCount } = await persistCinema(supabase, slug, films);
       await supabase
         .from('scrape_log')
         .update({ finished_at: new Date().toISOString(), status: 'success' })
-        .eq('id', logId);
-      return json({ ok: true, id: slug, name, films: filmCount });
+        .eq('id', logRow?.id);
+      return json({ ok: true, cinema, films: filmCount });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       await supabase
         .from('scrape_log')
         .update({ finished_at: new Date().toISOString(), status: 'error', error_msg: msg })
-        .eq('id', logId);
-      // Cinema is added; the scrape can be retried later.
-      return json({ ok: true, id: slug, name, films: 0, warning: `Added, but initial scrape failed: ${msg}` });
+        .eq('id', logRow?.id);
+      // The cinema row stays; the weekly cron will retry the scrape.
+      return json({ ok: true, cinema, films: 0, scrapeError: msg });
     }
+  }
+
+  // ---- DELETE ----
+  if (payload?.action === 'delete') {
+    if (!payload.id) return json({ error: 'Missing cinema id.' }, 400);
+    const { error } = await supabase.from('cinemas').delete().eq('id', payload.id);
+    if (error) return json({ error: error.message }, 500);
+    return json({ ok: true });
   }
 
   return json({ error: 'Unknown action.' }, 400);

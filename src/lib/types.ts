@@ -1,35 +1,35 @@
 /** Domain types — mirror the Supabase schema (supabase/migrations). */
 
-export type CinemaId = 'utazu' | 'ayagawa' | (string & {});
 export type Language = 'english' | 'japanese' | 'unknown';
 export type FilmStatus = 'now_showing' | 'upcoming';
 
 export type Cinema = {
-  id: CinemaId;
+  id: string; // AEON slug: 'utazu', 'ayagawa'
   name: string;
-  url_mobile: string;
+  schedule_url: string;
   display_order: number;
 };
 
 export type Screening = {
   id: string;
   film_id: string;
-  date: string; // 'YYYY-MM-DD'
-  times: string[]; // ['10:00', '13:30']
+  date: string; // 'YYYY-MM-DD' (JST)
   language: Language;
-  screen: string | null;
+  times: string[]; // ['10:00', '13:30'] (JST)
 };
 
 export type Film = {
   id: string;
-  cinema_id: CinemaId;
-  title: string;
-  title_original: string | null;
+  cinema_id: string;
+  source_id: string;
+  title: string; // Japanese display title
+  title_original: string | null; // English title when different
   description: string | null;
-  cast: string[];
   poster_url: string | null;
+  duration_min: number | null;
+  genres: string[];
+  cast: string[];
   status: FilmStatus;
-  language: Language;
   run_from: string | null;
   run_to: string | null;
   source_url: string | null;
@@ -44,9 +44,15 @@ export type FilmWithScreenings = Film & {
 
 export type ScrapeLog = {
   id: string;
-  cinema_id: CinemaId | null;
+  cinema_id: string | null;
   started_at: string;
   finished_at: string | null;
   status: 'success' | 'error' | null;
   error_msg: string | null;
+};
+
+/** One bookable slot, flattened for the pickers: a date + time + language. */
+export type ShowTime = {
+  time: string; // 'HH:mm'
+  language: Language;
 };

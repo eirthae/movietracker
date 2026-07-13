@@ -1,67 +1,35 @@
 # Edge Functions
 
-Two Deno functions back the app. Both use the **service-role key** (auto-injected
-as `SUPABASE_SERVICE_ROLE_KEY`) and bypass RLS.
+Two functions, both written for the Deno edge runtime and deployed with the
+Supabase CLI. Shared code lives in `_shared/`.
 
-| Function | Trigger | Purpose |
+| Function | Trigger | What it does |
 |---|---|---|
-| `scrape-cinemas` | Weekly cron + manual | Fetch AEON JSON for every cinema → upsert films/screenings → log → push notifications for new English films at Utazu |
-| `manage-cinema` | App (`functions.invoke`) | Add a cinema by URL (validate + name lookup + immediate scrape) or delete one |
-
-Shared logic lives in `_shared/`:
-- `aeon.ts` — fetch + parse AEON's JSON schedule/movies API (no HTML scraping)
-- `persist.ts` — upsert films, refresh screenings, detect new English films
-- `push.ts` — Expo Push API client
+| `scrape-cinemas` | Weekly cron + manual invoke | Pulls every cinema's schedule from AEON's JSON API, upserts films/screenings, logs to `scrape_log` |
+| `manage-cinema` | Called from the web app | `validate` (Add Cinema preview), `add` (insert + immediate scrape), `delete` |
 
 ## Deploy
 
 ```bash
 npx supabase functions deploy scrape-cinemas
 npx supabase functions deploy manage-cinema
+npx supabase functions invoke scrape-cinemas --no-verify-jwt   # first data pull
 ```
 
-(`verify_jwt = false` is set per-function in `config.toml`, so the app can invoke
-`manage-cinema` with the publishable key.)
+Both functions run with the project's built-in `SUPABASE_URL` /
+`SUPABASE_SERVICE_ROLE_KEY` env vars — no extra secrets needed.
 
-## Test / run on demand
+## Weekly cron
 
-```bash
-# Manual scrape (all cinemas)
-npx supabase functions invoke scrape-cinemas --no-verify-jwt
+Dashboard → Integrations → **Cron** → new job:
 
-# Add a cinema
-npx supabase functions invoke manage-cinema --no-verify-jwt \
-  --body '{"action":"add","url":"https://cinema.aeoncinema.com/wm/utazu/"}'
-```
+- Schedule: `0 21 * * 0` (Sunday 21:00 UTC = **Monday 06:00 JST**)
+- Type: Edge Function → `scrape-cinemas`
 
-Or from the Supabase Dashboard → Edge Functions → Invoke.
+AEON publishes the coming week's schedule ahead of the Monday cinema-week
+start, so a Monday-morning scrape captures the fresh week.
 
-## Weekly cron — Monday 06:00 JST (= 21:00 UTC Sunday)
+## Data source notes
 
-Easiest: **Dashboard → Integrations → Cron → Create job**, schedule `0 21 * * 0`,
-type "Supabase Edge Function", pick `scrape-cinemas`.
-
-Or via SQL (run once in the SQL Editor — needs `pg_cron` + `pg_net`, and your
-service-role key; do **not** commit this with the key filled in):
-
-```sql
-select cron.schedule(
-  'weekly-cinema-scrape',
-  '0 21 * * 0',
-  $$
-  select net.http_post(
-    url     := 'https://<PROJECT_REF>.functions.supabase.co/scrape-cinemas',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer <SERVICE_ROLE_KEY>'
-    )
-  );
-  $$
-);
-```
-
-## Notifications
-
-No extra secrets needed — the function reads device tokens from `device_tokens`
-and calls Expo's push API directly. For a **production APK**, Expo needs an FCM
-(Firebase) credential configured via `eas` (see the app's build docs).
+See [docs/DATA.md](../../docs/DATA.md) for the AEON endpoints, the language
+detection rules, and what data is (and isn't) available.

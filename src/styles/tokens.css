@@ -1,0 +1,42 @@
+/* Design tokens — GitLab brand palette, per the Cinema Tracker mockups.
+   Components reference these variables only; no raw hex in component CSS. */
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --backdrop: #17161b; /* page behind the phone-width shell */
+  --bg: #1f1e24;
+  --surface: #2b2a33;
+  --surface-elev: #363540;
+  --accent: #7759c2;
+  --accent-subtle: #3d2f6b;
+  --text: #fafafa;
+  --text-2: #a8a7b3;
+  --muted: #6e6d7a;
+  --border: #3d3c48;
+  --error: #c24040;
+  --success: #2da160;
+  --badge-eng: #2da160;
+  --badge-ja: #525160;
+  --link: #a08be0;
+  --on-accent: #ffffff;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --backdrop: #eceaf5;
+  --bg: #ffffff;
+  --surface: #f5f4fa;
+  --surface-elev: #eceaf5;
+  --accent: #6b4fbb;
+  --accent-subtle: #e8e2f7;
+  --text: #1f1e24;
+  --text-2: #525160;
+  --muted: #a8a7b3;
+  --border: #e0dff0;
+  --error: #b03030;
+  --success: #2da160;
+  --badge-eng: #2da160;
+  --badge-ja: #8a8998;
+  --link: #6b4fbb;
+  --on-accent: #ffffff;
+}

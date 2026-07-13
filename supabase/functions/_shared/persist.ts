@@ -2,50 +2,32 @@
  * Persist a cinema's parsed films into Postgres (service-role client).
  *
  * Strategy:
- *  - upsert films by (cinema_id, title, status); first_seen_at is left out of the
- *    payload so it keeps its INSERT default on existing rows (drives notifications)
- *  - delete films for this cinema that were NOT seen this run (and cascade screenings)
+ *  - upsert films by (cinema_id, source_id); first_seen_at is left out of the
+ *    payload so it keeps its INSERT default on existing rows
+ *  - delete films for this cinema that were NOT seen this run (cascades screenings)
  *  - replace each surviving film's screenings wholesale (schedule changes weekly)
- *  - report films that are newly inserted AND have an English screening
  */
 import type { ParsedFilm } from './aeon.ts';
 
-export interface NewEnglishFilm {
-  id: string;
-  title: string;
-  status: 'now_showing' | 'upcoming';
-}
-
 export interface PersistResult {
   filmCount: number;
-  newEnglishFilms: NewEnglishFilm[];
+  screeningCount: number;
 }
-
-const keyOf = (title: string, status: string, language: string) => `${title}|${status}|${language}`;
 
 export async function persistCinema(
   supabase: any,
   cinemaId: string,
   films: ParsedFilm[],
 ): Promise<PersistResult> {
-  // 1. Existing films for this cinema (to know what's new).
-  const { data: existing, error: exErr } = await supabase
-    .from('films')
-    .select('id, title, status, language')
-    .eq('cinema_id', cinemaId);
-  if (exErr) throw exErr;
-  const existingKeys = new Set(
-    (existing ?? []).map((f: any) => keyOf(f.title, f.status, f.language)),
-  );
-
-  // 2. Upsert films, returning ids.
+  // 1. Upsert films, returning ids keyed by source_id.
   const payload = films.map((f) => ({
     cinema_id: cinemaId,
+    source_id: f.source_id,
     title: f.title,
     title_original: f.title_original,
     poster_url: f.poster_url,
+    duration_min: f.duration_min,
     status: f.status,
-    language: f.language,
     run_from: f.run_from,
     run_to: f.run_to,
     source_url: f.source_url,
@@ -56,42 +38,44 @@ export async function persistCinema(
   if (payload.length) {
     const { data, error } = await supabase
       .from('films')
-      .upsert(payload, { onConflict: 'cinema_id,title,status,language' })
-      .select('id, title, status, language');
+      .upsert(payload, { onConflict: 'cinema_id,source_id' })
+      .select('id, source_id');
     if (error) throw error;
     upserted = data ?? [];
   }
 
-  const idByKey = new Map<string, string>();
-  for (const row of upserted) idByKey.set(keyOf(row.title, row.status, row.language), row.id);
+  const idBySource = new Map<string, string>();
+  for (const row of upserted) idBySource.set(row.source_id, row.id);
   const currentIds = upserted.map((r) => r.id);
 
-  // 3. Delete films no longer scheduled (cascades to screenings).
-  if (currentIds.length) {
-    await supabase
-      .from('films')
-      .delete()
-      .eq('cinema_id', cinemaId)
-      .not('id', 'in', `(${currentIds.join(',')})`);
-  } else {
-    await supabase.from('films').delete().eq('cinema_id', cinemaId);
+  // 2. Delete films no longer on the schedule (cascades to screenings).
+  const { data: allFilms, error: allErr } = await supabase
+    .from('films')
+    .select('id')
+    .eq('cinema_id', cinemaId);
+  if (allErr) throw allErr;
+  const current = new Set(currentIds);
+  const staleIds = (allFilms ?? []).map((f: any) => f.id).filter((id: string) => !current.has(id));
+  if (staleIds.length) {
+    const { error } = await supabase.from('films').delete().in('id', staleIds);
+    if (error) throw error;
   }
 
-  // 4. Replace screenings for the surviving films.
+  // 3. Replace screenings for the surviving films.
   if (currentIds.length) {
-    await supabase.from('screenings').delete().in('film_id', currentIds);
+    const { error } = await supabase.from('screenings').delete().in('film_id', currentIds);
+    if (error) throw error;
   }
   const screeningRows: any[] = [];
   for (const f of films) {
-    const filmId = idByKey.get(keyOf(f.title, f.status));
+    const filmId = idBySource.get(f.source_id);
     if (!filmId) continue;
     for (const s of f.screenings) {
       screeningRows.push({
         film_id: filmId,
         date: s.date,
-        times: s.times,
         language: s.language,
-        screen: s.screen,
+        times: s.times,
       });
     }
   }
@@ -102,16 +86,5 @@ export async function persistCinema(
     if (error) throw error;
   }
 
-  // 5. Newly-inserted English-language films (each language is its own row now).
-  const newEnglishFilms: NewEnglishFilm[] = [];
-  for (const f of films) {
-    const k = keyOf(f.title, f.status, f.language);
-    if (existingKeys.has(k)) continue; // not new
-    if (f.language !== 'english') continue;
-    const id = idByKey.get(k);
-    // Notify using the English title when we have it.
-    if (id) newEnglishFilms.push({ id, title: f.title_original || f.title, status: f.status });
-  }
-
-  return { filmCount: films.length, newEnglishFilms };
+  return { filmCount: films.length, screeningCount: screeningRows.length };
 }

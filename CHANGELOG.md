@@ -1,0 +1,70 @@
+# Changelog
+
+All notable changes to Cinema Tracker are documented here. Data-model and
+data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
+[docs/SPEC.md](docs/SPEC.md).
+
+## [2.0.0] — 2026-07-14
+
+Full rebuild as a **web app**. The v1 Android app (Expo / React Native) was
+removed; it is preserved in git history at commit `26b183a`.
+
+### Added
+- **Vite + React + TypeScript web app** with four screens implemented from the
+  Claude Design mockups (`Cinema Tracker Mockups.dc.html`, the design source of
+  truth): Cinemas, Film Detail, Settings, Add Cinema.
+- **Add to Google Calendar** on the Film Detail screen: pick a date + time, the
+  button opens Google Calendar's event template pre-filled with the film title
+  (with ENG tag where relevant), the exact JST screening time, the film's real
+  runtime from AEON data, and the cinema name as location. No API/OAuth needed.
+- **Calendar privacy prompt**: the first tap on the calendar button shows a
+  one-time consent sheet explaining that the app never connects to, sees, or
+  stores anyone's calendar/account — the event is saved by the user in their
+  own Google account, and the only data sent to Google is the event text.
+  Designed for handing the app to friends.
+- **First-run empty state**: the app ships with **zero cinemas**. A big
+  centred ＋ button ("Add a cinema to get movies") leads to the Add Cinema
+  screen; the regular Cinemas view appears once the first cinema is added.
+- **Add Cinema screen** with live URL validation: pasting an AEON schedule URL
+  auto-derives the short ID, checks the schedule endpoint, looks up the cinema
+  name, and previews how many films were found before adding.
+- `validate` action on the `manage-cinema` Edge Function (powers the preview).
+- **Film runtime** (`films.duration_min`) captured from AEON's movie master
+  (ISO 8601 duration) with per-screening start/end fallback — used for calendar
+  event end times.
+- **Mock data mode**: with no `.env` the app runs without a backend (also
+  forced via `?mock`). It starts empty like a fresh install; adding `utazu` or
+  `ayagawa` by URL unlocks bundled sample films that mirror the design mockups.
+- Light/dark/system theme with instant switching, persisted in localStorage.
+- PWA manifest + icon so the site can be added to the Android home screen.
+
+### Changed
+- **Data model** (breaking, see docs/DATA.md): films are now one row per
+  (cinema, AEON movie identifier) via the new `films.source_id`; **language
+  moved to screenings**, so one film card can mix ENG and 日本 showtimes —
+  matching the design. v1 stored each language variant as a separate film.
+- `cinemas.url_mobile` renamed to `cinemas.schedule_url`.
+- Badge labels are now `ENG` / `日本` (v1 used ENGLISH/JAPANESE), per the design.
+- English-titled films sort above Japanese-only films within each section.
+- Adding a cinema scrapes it immediately (v1 behaviour kept), so the new tab
+  has data right away.
+
+### Removed
+- The entire Expo / React Native app, EAS build config, and Expo push
+  notification plumbing (`device_tokens`, `notifications_log`,
+  `_shared/push.ts`). The Settings toggle for English-film notifications
+  remains as a stored preference; actual web-push delivery is future work.
+- The v1 written brief (`cinema-tracker-brief.md`) — superseded by
+  docs/SPEC.md. Historical copy in git history.
+
+### Database migration
+- `20260713000000_web_rebuild.sql` drops all v1 tables (scraped data only —
+  refilled by the next scrape) and recreates the v2 schema. **No seed data** —
+  cinemas are added from the app. Run `npx supabase db push`, then re-deploy
+  both Edge Functions.
+
+## [1.0.0] — 2026-06-27
+
+Initial version: Expo (React Native) Android app + Supabase backend tracking
+AEON Utazu / Ayagawa schedules with English/Japanese detection, weekly scrape
+cron, and Expo push notifications for new English films at Utazu.

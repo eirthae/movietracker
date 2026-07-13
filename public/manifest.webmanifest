@@ -1,0 +1,17 @@
+{
+  "name": "Cinema Tracker",
+  "short_name": "Cinema",
+  "description": "What's playing in English at your AEON cinemas",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1F1E24",
+  "theme_color": "#1F1E24",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
