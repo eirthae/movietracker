@@ -64,6 +64,11 @@ Key modelling decisions:
   policies. Safe to ship in the client bundle.
 - **Service-role key (Edge Functions only):** bypasses RLS for writes. Never
   leaves Supabase.
+- **Explicit grants required:** Supabase no longer auto-grants table
+  privileges to the Data API roles for new tables, so
+  `20260714000000_data_api_grants.sql` adds them (SELECT for
+  anon/authenticated, ALL for service_role). Any future table needs the same
+  treatment or every request fails with Postgres error 42501.
 - Edge Functions have `verify_jwt = false` (see `supabase/config.toml`) —
   needed because the app calls `manage-cinema` with the publishable key and
   cron invokes `scrape-cinemas` directly. Single-user app, low-risk surface.

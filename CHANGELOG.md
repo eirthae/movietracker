@@ -4,6 +4,16 @@ All notable changes to Cinema Tracker are documented here. Data-model and
 data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
 [docs/SPEC.md](docs/SPEC.md).
 
+## [2.0.1] — 2026-07-14
+
+### Fixed
+- **"permission denied" (42501) on every read/write with a fresh v2 schema.**
+  Supabase's current default no longer auto-grants table privileges to the
+  Data API roles for newly created tables; RLS policies alone aren't enough.
+  New migration `20260714000000_data_api_grants.sql` grants SELECT to
+  `anon`/`authenticated` and ALL to `service_role` on the four tables. Run
+  `npx supabase db push` to apply.
+
 ## [2.0.0] — 2026-07-14
 
 Full rebuild as a **web app**. The v1 Android app (Expo / React Native) was
