@@ -14,36 +14,22 @@ function d(offset: number): string {
 }
 
 /**
- * Mock mode starts with ZERO cinemas (matching a fresh install) and persists
- * user-added ones in localStorage. Adding 'utazu' or 'ayagawa' unlocks the
- * bundled sample films; any other slug adds an empty cinema.
+ * Mock mode starts with ZERO cinemas (matching a fresh install); the device's
+ * cinema list lives in ct.myCinemas either way. Adding 'utazu' or 'ayagawa'
+ * unlocks the bundled sample films; any other id adds an empty cinema.
  */
-const ADDED_KEY = 'ct.mockCinemas';
-
-export function getMockCinemas(): Cinema[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(ADDED_KEY) ?? '[]') as {
-      id: string;
-      name: string;
-    }[];
-    return raw.map((c, i) => ({
-      id: c.id,
-      name: c.name,
-      schedule_url: `https://cinema.aeoncinema.com/wm/${c.id}/`,
-      display_order: i,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-export function addMockCinema(id: string, name: string): void {
-  const list = getMockCinemas();
-  if (list.some((c) => c.id === id)) throw new Error('That cinema is already added.');
-  localStorage.setItem(
-    ADDED_KEY,
-    JSON.stringify([...list.map((c) => ({ id: c.id, name: c.name })), { id, name }]),
-  );
+export function mockCinemaFromRef(ref: { id: string; name: string }, order: number): Cinema {
+  const [chain, slug] = ref.id.includes('-')
+    ? [ref.id.slice(0, ref.id.indexOf('-')), ref.id.slice(ref.id.indexOf('-') + 1)]
+    : ['aeon', ref.id];
+  return {
+    id: ref.id,
+    chain,
+    slug,
+    name: ref.name,
+    schedule_url: '',
+    display_order: order,
+  };
 }
 
 let screeningSeq = 0;

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
+import { AddToCalendar } from '@/components/AddToCalendar';
 import { DateChips, TimeChips } from '@/components/ScreeningPicker';
 import { Poster } from '@/components/Poster';
 import { formatRun, todayJst } from '@/lib/format';
@@ -14,9 +14,17 @@ function metaLine(film: FilmWithScreenings): string | null {
   return run ?? genres;
 }
 
-/** Full card for Now Showing: info block + inline screenings picker. */
-export function FilmCard({ film }: { film: FilmWithScreenings }) {
-  const navigate = useNavigate();
+/**
+ * Full card for Now Showing. Picking a date + time reveals the inline
+ * Add to Google Calendar button (no separate detail page).
+ */
+export function FilmCard({
+  film,
+  cinemaName,
+}: {
+  film: FilmWithScreenings;
+  cinemaName?: string;
+}) {
   const { primary, secondary } = displayTitle(film);
   const dates = useMemo(() => screeningDates(film), [film]);
   const today = todayJst();
@@ -24,16 +32,17 @@ export function FilmCard({ film }: { film: FilmWithScreenings }) {
 
   const [open, setOpen] = useState(true);
   const [date, setDate] = useState<string | null>(defaultDate);
+  const [time, setTime] = useState<ShowTime | null>(null);
   const times = date ? timesOn(film, date) : [];
 
-  const goToDetail = (t?: ShowTime) => {
-    const params = t && date ? `?date=${date}&time=${t.time}&lang=${t.language}` : '';
-    navigate(`/film/${film.id}${params}`);
+  const selectDate = (d: string) => {
+    setDate(d);
+    setTime(null);
   };
 
   return (
     <article className="card">
-      <button className="card-main" onClick={() => goToDetail()}>
+      <div className="card-main">
         <Poster url={film.poster_url} alt={primary} language={filmLanguage(film)} size="md" />
         <div className="film-info">
           <div className="film-title">{primary}</div>
@@ -42,7 +51,7 @@ export function FilmCard({ film }: { film: FilmWithScreenings }) {
           {film.description && <div className="film-desc">{film.description}</div>}
           {film.cast.length > 0 && <div className="film-cast">Cast: {film.cast.join(', ')}</div>}
         </div>
-      </button>
+      </div>
 
       {dates.length > 0 && (
         <div className="screenings-block">
@@ -54,8 +63,11 @@ export function FilmCard({ film }: { film: FilmWithScreenings }) {
           </button>
           {open && (
             <>
-              <DateChips dates={dates} selected={date} onSelect={setDate} />
-              <TimeChips times={times} onSelect={(t) => goToDetail(t)} />
+              <DateChips dates={dates} selected={date} onSelect={selectDate} />
+              <TimeChips times={times} selected={time} onSelect={setTime} />
+              {date && time && (
+                <AddToCalendar film={film} cinemaName={cinemaName} date={date} time={time} />
+              )}
             </>
           )}
         </div>
@@ -66,11 +78,10 @@ export function FilmCard({ film }: { film: FilmWithScreenings }) {
 
 /** Compact card for Coming Soon. */
 export function ComingSoonCard({ film }: { film: FilmWithScreenings }) {
-  const navigate = useNavigate();
   const { primary } = displayTitle(film);
 
   return (
-    <button className="card" onClick={() => navigate(`/film/${film.id}`)}>
+    <article className="card">
       <div className="card-main">
         <Poster url={film.poster_url} alt={primary} language={filmLanguage(film)} size="sm" />
         <div className="film-info">
@@ -79,6 +90,6 @@ export function ComingSoonCard({ film }: { film: FilmWithScreenings }) {
           {film.description && <div className="film-desc two-lines">{film.description}</div>}
         </div>
       </div>
-    </button>
+    </article>
   );
 }

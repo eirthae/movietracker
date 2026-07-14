@@ -54,7 +54,7 @@ export function TimeChips({
           >
             <span className="time">{t.time}</span>
             <span className={`tag ${t.language === 'english' ? 'eng' : 'ja'}`}>
-              {t.language === 'english' ? 'ENG' : '日本'}
+              {t.language === 'english' ? 'ENG' : '日本語'}
             </span>
           </button>
         );

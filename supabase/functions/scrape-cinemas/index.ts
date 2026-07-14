@@ -1,14 +1,15 @@
 /**
  * scrape-cinemas — weekly cron + manual invoke.
  *
- * Fetches every cinema's schedule from AEON's JSON API, upserts films and
- * screenings, and logs each run. Each cinema is isolated in its own try/catch
- * so one failure never aborts the others.
+ * Fetches every cinema's schedule via its chain adapter (AEON / TOHO / Parks),
+ * upserts films and screenings, and logs each run. Each cinema is isolated in
+ * its own try/catch so one failure never aborts the others.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { fetchCinema, fetchMoviesMaster } from '../_shared/aeon.ts';
+import { adapterFor } from '../_shared/registry.ts';
 import { persistCinema } from '../_shared/persist.ts';
+import type { ScrapeContext } from '../_shared/types.ts';
 
 Deno.serve(async () => {
   const supabase = createClient(
@@ -18,20 +19,14 @@ Deno.serve(async () => {
 
   const { data: cinemas, error } = await supabase
     .from('cinemas')
-    .select('id')
+    .select('id, chain, slug, schedule_url')
     .order('display_order');
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  // Fetch the shared ~4MB movies master once for all cinemas.
-  let moviesMaster: Record<string, any> | undefined;
-  try {
-    moviesMaster = await fetchMoviesMaster();
-  } catch (e) {
-    console.error('movies master fetch failed, will fetch per-cinema:', e);
-  }
-
+  // Shared per-run cache (AEON's ~4MB movies master is fetched once, lazily).
+  const ctx: ScrapeContext = {};
   const results: Record<string, unknown> = {};
 
   for (const cinema of cinemas ?? []) {
@@ -42,7 +37,9 @@ Deno.serve(async () => {
       .single();
 
     try {
-      const films = await fetchCinema(cinema.id, moviesMaster);
+      const adapter = adapterFor(cinema.chain);
+      if (!adapter) throw new Error(`No adapter for chain '${cinema.chain}'`);
+      const films = await adapter.fetchFilms(cinema.slug, cinema.schedule_url, ctx);
       const { filmCount, screeningCount } = await persistCinema(supabase, cinema.id, films);
 
       await supabase
@@ -51,7 +48,7 @@ Deno.serve(async () => {
         .eq('id', logRow?.id);
       results[cinema.id] = { ok: true, films: filmCount, screenings: screeningCount };
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = e instanceof Error ? e.message : JSON.stringify(e);
       await supabase
         .from('scrape_log')
         .update({ finished_at: new Date().toISOString(), status: 'error', error_msg: msg })

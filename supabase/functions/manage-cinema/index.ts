@@ -1,22 +1,22 @@
 /**
- * manage-cinema — validate, add, or delete a cinema from the app.
+ * manage-cinema — validate, add, or delete a cinema.
  *
- *   POST { action: 'validate', url }      -> parse slug, check the schedule
- *                                            endpoint exists, look up the name,
- *                                            count films (Add Cinema preview)
- *   POST { action: 'add', url, name? }    -> validate, insert, scrape immediately
- *   POST { action: 'delete', id }         -> delete cinema (films cascade)
+ *   POST { action: 'validate', url }   -> resolve chain adapter from the URL,
+ *                                         check the schedule exists, return
+ *                                         { id, chain, slug, name, films, existing }
+ *   POST { action: 'add', url, name? } -> insert + immediate scrape; if the
+ *                                         cinema already exists in the shared DB
+ *                                         just return it (devices keep their own
+ *                                         cinema lists client-side)
+ *   POST { action: 'delete', id }      -> delete cinema (films cascade)
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import {
-  cinemaExists,
-  countFilms,
-  fetchCinema,
-  lookupCinemaName,
-  parseSlug,
-} from '../_shared/aeon.ts';
+import { resolveUrl } from '../_shared/registry.ts';
 import { persistCinema } from '../_shared/persist.ts';
+import type { ScrapeContext } from '../_shared/types.ts';
+
+const UNSUPPORTED = 'Unsupported URL — paste an AEON, TOHO, or Parks Cinema schedule page.';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -47,47 +47,65 @@ Deno.serve(async (req) => {
 
   // ---- VALIDATE (Add Cinema preview card) ----
   if (payload?.action === 'validate') {
-    const slug = parseSlug(String(payload.url ?? ''));
-    if (!slug) {
-      return json({ error: 'Could not read a cinema slug from that URL.' }, 400);
-    }
-    if (!(await cinemaExists(slug))) {
-      return json({ error: 'No AEON schedule found for that URL.' }, 404);
-    }
-    const { data: dupe } = await supabase
-      .from('cinemas')
-      .select('id')
-      .eq('id', slug)
-      .maybeSingle();
-    if (dupe) return json({ error: 'That cinema is already added.' }, 409);
+    const resolved = resolveUrl(String(payload.url ?? ''));
+    if (!resolved) return json({ error: UNSUPPORTED }, 400);
 
-    const [name, films] = await Promise.all([
-      lookupCinemaName(slug),
-      countFilms(slug).catch(() => 0),
-    ]);
-    return json({ ok: true, slug, name: name ?? `AEON Cinema ${slug}`, films });
+    const { data: existing } = await supabase
+      .from('cinemas')
+      .select('id, name')
+      .eq('id', resolved.id)
+      .maybeSingle();
+    if (existing) {
+      // Already scraped for someone — the device just attaches to it.
+      const { count } = await supabase
+        .from('films')
+        .select('id', { count: 'exact', head: true })
+        .eq('cinema_id', resolved.id);
+      return json({
+        ok: true,
+        id: resolved.id,
+        chain: resolved.chain,
+        slug: resolved.slug,
+        name: existing.name,
+        films: count ?? 0,
+        existing: true,
+      });
+    }
+    try {
+      const v = await resolved.adapter.validate(resolved.slug, String(payload.url));
+      return json({
+        ok: true,
+        id: resolved.id,
+        chain: resolved.chain,
+        slug: resolved.slug,
+        name: v.name,
+        films: v.films,
+        existing: false,
+      });
+    } catch (e) {
+      return json({ error: e instanceof Error ? e.message : JSON.stringify(e) }, 404);
+    }
   }
 
   // ---- ADD ----
   if (payload?.action === 'add') {
-    const slug = parseSlug(String(payload.url ?? ''));
-    if (!slug) {
-      return json({ error: 'Could not read a cinema slug from that URL.' }, 400);
-    }
-    if (!(await cinemaExists(slug))) {
-      return json({ error: 'No AEON schedule found for that URL.' }, 404);
-    }
+    const resolved = resolveUrl(String(payload.url ?? ''));
+    if (!resolved) return json({ error: UNSUPPORTED }, 400);
+
     const { data: dupe } = await supabase
       .from('cinemas')
-      .select('id')
-      .eq('id', slug)
+      .select('*')
+      .eq('id', resolved.id)
       .maybeSingle();
-    if (dupe) return json({ error: 'That cinema is already added.' }, 409);
+    if (dupe) return json({ ok: true, cinema: dupe, existing: true });
 
     const name =
       (typeof payload.name === 'string' && payload.name.trim()) ||
-      (await lookupCinemaName(slug)) ||
-      `AEON Cinema ${slug}`;
+      (await resolved.adapter.validate(resolved.slug, String(payload.url)).then(
+        (v) => v.name,
+        () => null,
+      )) ||
+      `${resolved.chain} ${resolved.slug}`;
 
     const { data: maxRow } = await supabase
       .from('cinemas')
@@ -97,9 +115,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const cinema = {
-      id: slug,
+      id: resolved.id,
+      chain: resolved.chain,
+      slug: resolved.slug,
       name,
-      schedule_url: `https://cinema.aeoncinema.com/wm/${slug}/`,
+      schedule_url: resolved.scheduleUrl,
       display_order: (maxRow?.display_order ?? -1) + 1,
     };
     const { error: insErr } = await supabase.from('cinemas').insert(cinema);
@@ -108,25 +128,26 @@ Deno.serve(async (req) => {
     // Scrape immediately so the new tab has data right away.
     const { data: logRow } = await supabase
       .from('scrape_log')
-      .insert({ cinema_id: slug, started_at: new Date().toISOString() })
+      .insert({ cinema_id: resolved.id, started_at: new Date().toISOString() })
       .select('id')
       .single();
     try {
-      const films = await fetchCinema(slug);
-      const { filmCount } = await persistCinema(supabase, slug, films);
+      const ctx: ScrapeContext = {};
+      const films = await resolved.adapter.fetchFilms(resolved.slug, resolved.scheduleUrl, ctx);
+      const { filmCount } = await persistCinema(supabase, resolved.id, films);
       await supabase
         .from('scrape_log')
         .update({ finished_at: new Date().toISOString(), status: 'success' })
         .eq('id', logRow?.id);
-      return json({ ok: true, cinema, films: filmCount });
+      return json({ ok: true, cinema, films: filmCount, existing: false });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = e instanceof Error ? e.message : JSON.stringify(e);
       await supabase
         .from('scrape_log')
         .update({ finished_at: new Date().toISOString(), status: 'error', error_msg: msg })
         .eq('id', logRow?.id);
       // The cinema row stays; the weekly cron will retry the scrape.
-      return json({ ok: true, cinema, films: 0, scrapeError: msg });
+      return json({ ok: true, cinema, films: 0, existing: false, scrapeError: msg });
     }
   }
 

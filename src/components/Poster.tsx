@@ -28,6 +28,6 @@ export function Poster({
 
 export function LanguageBadge({ language }: { language: Language }) {
   if (language === 'english') return <span className="badge eng">ENG</span>;
-  if (language === 'japanese') return <span className="badge ja">日本</span>;
+  if (language === 'japanese') return <span className="badge ja">日本語</span>;
   return null;
 }

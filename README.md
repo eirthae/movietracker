@@ -3,11 +3,12 @@
 **Live app: <https://eirthae.github.io/movietracker/>** (auto-deployed from
 `main` via GitHub Pages)
 
-A personal, mobile-first **web app** that tracks what's playing at AEON
-cinemas in Japan, focused on **English-language availability** — answering
-"can I watch this in English, and when?" Add any AEON cinema by URL, pick a
-showtime, and add it straight to Google Calendar. Data refreshes automatically
-each week.
+A personal, mobile-first **web app** that tracks what's playing at Japanese
+cinemas (**AEON, TOHO Cinemas, Parks Cinema/SMT**), focused on
+**English-language availability** — answering "can I watch this in English,
+and when?" Add any supported cinema by URL, pick a showtime on the card, and
+add it straight to Google Calendar. Data refreshes automatically each week;
+each device keeps its own cinema list while film data is shared.
 
 - **App:** Vite + React + TypeScript (React Query, React Router)
 - **Backend:** Supabase (Postgres + Edge Functions)
@@ -36,14 +37,15 @@ Language is detected per screening from the title prefix: `字幕`/`SUB` →
 
 ```
 src/
-  pages/          # CinemasPage, FilmDetailPage, SettingsPage, AddCinemaPage
-  components/     # FilmCard, ScreeningPicker (date/time chips), Poster, TabBar
+  pages/          # CinemasPage, SettingsPage, AddCinemaPage
+  components/     # FilmCard (+ inline AddToCalendar), ScreeningPicker, Poster, TabBar
   lib/            # supabase client, react-query hooks, calendar URL builder,
-                  # prefs (theme), formatting, mock data
+                  # per-device cinema list, prefs (theme), formatting, mock data
   styles/         # tokens.css (design tokens, dark+light), app.css
 supabase/
-  migrations/     # Postgres schema (v2: 20260713000000_web_rebuild.sql)
-  functions/      # scrape-cinemas, manage-cinema, _shared/ (AEON adapter)
+  migrations/     # Postgres schema
+  functions/      # scrape-cinemas, manage-cinema,
+                  # _shared/ (aeon/toho/parks adapters + registry)
 docs/             # SPEC.md, DATA.md
 ```
 

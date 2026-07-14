@@ -15,25 +15,27 @@ refreshes automatically every week.
 ## 2. Core features (the base scope)
 
 1. **Weekly movie data** from every added cinema — films, info, poster,
-   run dates.
-2. **Screening times** per film, per date, with **English (字幕/SUB) vs
-   Japanese (吹替/DUB or domestic)** detected per screening.
-3. **Add a screening to Google Calendar** — pick date + time on the Film
-   Detail screen, one tap opens Google Calendar pre-filled (JST time, real
-   runtime, cinema as location). Uses the calendar URL template; no OAuth.
+   run dates. Supported chains: **AEON**, **TOHO Cinemas**, **Parks
+   Cinema / SMT** (one adapter each; see docs/DATA.md).
+2. **Screening times** per film, per date, with **ENG (字幕/SUB) vs
+   日本語 (吹替/DUB or domestic)** detected per screening.
+3. **Add a screening to Google Calendar** — pick a date + time on the film
+   card; the button appears right there and opens Google Calendar pre-filled
+   (JST time, real runtime, cinema as location). URL template; no OAuth.
    A **one-time privacy prompt** on first use explains that nothing is
-   connected, seen, stored, or shared (see §7 Privacy).
-4. **Add new cinemas by URL** — paste an AEON schedule link, the app
+   connected, seen, stored, or shared (see §6 Privacy).
+4. **Add new cinemas by URL** — paste a supported schedule link, the app
    validates it, previews the film count, and starts tracking immediately.
+   **Cinema lists are per device** (friends each pick their own tabs); the
+   film data itself is shared and scraped once per cinema.
 
 ## 3. Screens (per the design)
 
 | Screen | Route | Notes |
 |---|---|---|
-| Cinemas | `/` | **Ships empty**: first run shows a big centred ＋ button — "Add a cinema to get movies". Once a cinema is added: one top tab per cinema (+ add button). "Updated Mon 23 Jun" under each tab from the scrape log. **Now Showing**: full cards with poster, ENG/日本 badge, titles, dates·genres, description, cast, and an inline screenings picker (date chips → time chips with per-time language tags). **Coming Soon**: collapsible, compact cards. |
-| Film Detail | `/film/:id` | Full-width poster + badge, full description, cast, date tabs + selectable time chips, "View on AEON website" link, pinned **Add to Google Calendar** footer showing the selection (`Sat 28 Jun · 19:15 · Harbor of Kites (ENG)`). |
+| Cinemas | `/` | **Ships empty**: first run shows a big centred ＋ button — "Add a cinema to get movies", no heading. Once a cinema is added: one top tab per cinema (+ add button). "Updated Mon 23 Jun" under each tab from the scrape log. **Now Showing**: full cards with poster, ENG/日本語 badge, titles, dates·genres, and an inline screenings picker (date chips → time chips with per-time language tags). **Picking a time reveals the Add to Google Calendar button inside the card** with the selection caption (`Sat 28 Jun · 19:15 · Harbor of Kites (ENG)`). **Coming Soon**: collapsible, compact cards. There is no per-film detail page. |
 | Settings | `/settings` | Appearance (System/Light/Dark radios, persisted), Notifications toggle ("English films"), About (app version, last scrape, data source). |
-| Add Cinema | `/add` | Name, schedule URL, auto-generated short ID, validation preview card ("URL looks valid — found 9 films"), Add button. |
+| Add Cinema | `/add` | Name, schedule URL (AEON / TOHO / Parks), auto-generated short ID (`utazu`, `toho-032`, `parks-namba`), validation preview card ("URL looks valid — found 9 films" / "Already tracked — ready right away"), Add button. |
 
 Bottom tab bar (Cinemas · Settings) on the two main screens only.
 

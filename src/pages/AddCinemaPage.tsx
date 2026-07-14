@@ -1,13 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { parseCinemaUrl } from '@/lib/chains';
+import { isMyCinema } from '@/lib/myCinemas';
 import { useAddCinema, validateCinemaUrl, type ValidateResult } from '@/lib/queries';
-
-/** Client-side slug preview (server re-validates on add). */
-function slugOf(url: string): string | null {
-  const m = url.match(/aeoncinema\.com\/(?:wm|theaters|cinema2?)\/([a-z0-9_-]+)/i);
-  return m ? m[1].toLowerCase() : null;
-}
 
 type Check =
   | { state: 'idle' }
@@ -24,7 +20,7 @@ export function AddCinemaPage() {
   const addM = useAddCinema();
   const requestSeq = useRef(0);
 
-  const slug = slugOf(url);
+  const parsed = parseCinemaUrl(url);
 
   // Debounced URL validation via the manage-cinema function.
   useEffect(() => {
@@ -33,8 +29,11 @@ export function AddCinemaPage() {
       setCheck({ state: 'idle' });
       return;
     }
-    if (!slugOf(trimmed)) {
-      setCheck({ state: 'invalid', message: "That doesn't look like an AEON schedule URL." });
+    if (!parseCinemaUrl(trimmed)) {
+      setCheck({
+        state: 'invalid',
+        message: "That doesn't look like an AEON, TOHO, or Parks Cinema schedule URL.",
+      });
       return;
     }
     setCheck({ state: 'checking' });
@@ -43,6 +42,10 @@ export function AddCinemaPage() {
       try {
         const result = await validateCinemaUrl(trimmed);
         if (seq !== requestSeq.current) return;
+        if (isMyCinema(result.id)) {
+          setCheck({ state: 'invalid', message: 'That cinema is already in your list.' });
+          return;
+        }
         setCheck({ state: 'valid', result });
         setName((prev) => (nameTouched && prev ? prev : result.name));
       } catch (e) {
@@ -96,12 +99,12 @@ export function AddCinemaPage() {
             autoCorrect="off"
             onChange={(e) => setUrl(e.target.value)}
           />
-          <span className="hint">AEON mobile schedule page — refreshed every Monday</span>
+          <span className="hint">AEON, TOHO, or Parks Cinema schedule page — refreshed every Monday</span>
         </div>
 
         <div className="form-field">
           <span className="label">Short ID</span>
-          <input className="input mono readonly" value={slug ?? ''} placeholder="—" readOnly />
+          <input className="input mono readonly" value={parsed?.id ?? ''} placeholder="—" readOnly />
           <span className="hint">Auto-generated from the URL</span>
         </div>
 
@@ -119,8 +122,9 @@ export function AddCinemaPage() {
             <div>
               <div className="title">URL looks valid</div>
               <div className="sub">
-                Found {check.result.films} film{check.result.films === 1 ? '' : 's'} on the
-                schedule page
+                {check.result.existing
+                  ? `Already tracked — ${check.result.films} films ready right away`
+                  : `Found ${check.result.films} film${check.result.films === 1 ? '' : 's'} on the schedule page`}
               </div>
             </div>
           </div>

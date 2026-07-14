@@ -4,7 +4,9 @@ export type Language = 'english' | 'japanese' | 'unknown';
 export type FilmStatus = 'now_showing' | 'upcoming';
 
 export type Cinema = {
-  id: string; // AEON slug: 'utazu', 'ayagawa'
+  id: string; // 'utazu' (AEON), 'toho-032', 'parks-namba'
+  chain: string; // 'aeon' | 'toho' | 'parks'
+  slug: string; // chain-local code
   name: string;
   schedule_url: string;
   display_order: number;

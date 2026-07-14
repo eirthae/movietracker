@@ -4,6 +4,39 @@ All notable changes to Cinema Tracker are documented here. Data-model and
 data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
 [docs/SPEC.md](docs/SPEC.md).
 
+## [2.1.0] — 2026-07-14
+
+### Added
+- **TOHO Cinemas support** — paste a TOHO schedule URL
+  (`hlo.tohotheater.jp/net/schedule/{site}/…`). Uses TOHO's JSON API
+  (api2.tohotheater.jp); gives Japanese + English titles, runtimes, and
+  per-screening 字幕/吹替 language detection. Format variants (MX4D, 轟音上映)
+  appear as their own cards.
+- **Parks Cinema / SMT support** — paste a site URL like
+  `parkscinema.com/site/namba/` (also works for `*.smt-cinema.com` sites).
+  Parses the weekly schedule fragment; covers the current week (the weekly
+  cron keeps it rolling).
+- **Per-device cinema lists**: the Supabase DB is a shared catalogue (each
+  cinema is scraped once no matter how many people follow it), but which
+  cinemas appear as tabs is now personal per browser (`ct.myCinemas` in
+  localStorage). Adding a cinema someone else already added attaches
+  instantly — "Already tracked — N films ready right away".
+
+### Changed
+- **Film detail page removed.** Picking a time on a film card reveals the
+  Add to Google Calendar button right there (with the same one-time privacy
+  prompt). Tapping a card no longer navigates.
+- Japanese badge text is now **日本語** (was 日本).
+- The big "Cinemas" heading on the home screen is gone.
+- Settings "Data source" now reads AEON · TOHO · Parks.
+
+### Notes
+- Descriptions/cast/genres remain unavailable — none of the three chains
+  publish them in a machine-readable form (verified). TMDB enrichment stays
+  the future option.
+- Existing users: cinema tabs are now per-device, so after updating you
+  re-add your cinema once (it attaches to the existing data instantly).
+
 ## [2.0.3] — 2026-07-14
 
 ### Added

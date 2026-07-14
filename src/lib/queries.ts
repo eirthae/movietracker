@@ -1,7 +1,9 @@
 /** React Query hooks over Supabase (or bundled mock data). */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { addMockCinema, getMockCinemas, MOCK_FILMS, mockScrapeLog } from './mock';
+import { parseCinemaUrl } from './chains';
+import { MOCK_FILMS, mockCinemaFromRef, mockScrapeLog } from './mock';
+import { addMyCinema, getMyCinemas } from './myCinemas';
 import { supabase, USE_MOCK } from './supabase';
 import type { Cinema, FilmStatus, FilmWithScreenings, Language, ScrapeLog, ShowTime } from './types';
 
@@ -62,17 +64,29 @@ function sortFilms(list: FilmWithScreenings[]): FilmWithScreenings[] {
 
 // ── Queries ──────────────────────────────────────────────────────────
 
+/**
+ * The cinemas THIS device follows. The DB rows are shared by every user of
+ * the app; the per-device list (ct.myCinemas) picks which ones appear here.
+ */
 export function useCinemas() {
   return useQuery({
     queryKey: ['cinemas'],
     queryFn: async (): Promise<Cinema[]> => {
-      if (USE_MOCK) return getMockCinemas();
+      const mine = getMyCinemas();
+      if (!mine.length) return [];
+      if (USE_MOCK) return mine.map(mockCinemaFromRef);
       const { data, error } = await supabase
         .from('cinemas')
         .select('*')
-        .order('display_order', { ascending: true });
+        .in('id', mine.map((c) => c.id));
       if (error) throw error;
-      return data ?? [];
+      const byId = new Map((data ?? []).map((row: Cinema) => [row.id, row]));
+      return mine
+        .map((ref, i) => {
+          const row = byId.get(ref.id);
+          return row ? { ...row, display_order: i } : null;
+        })
+        .filter((c): c is Cinema => c !== null);
     },
   });
 }
@@ -146,7 +160,7 @@ export function useLatestScrape() {
   return useQuery({
     queryKey: ['latestScrape'],
     queryFn: async (): Promise<ScrapeLog | null> => {
-      if (USE_MOCK) return getMockCinemas().length ? mockScrapeLog(null) : null;
+      if (USE_MOCK) return getMyCinemas().length ? mockScrapeLog(null) : null;
       const { data, error } = await supabase
         .from('scrape_log')
         .select('*')
@@ -164,23 +178,35 @@ export function useLatestScrape() {
 
 export interface ValidateResult {
   ok: boolean;
+  id: string;
+  chain: string;
   slug: string;
   name: string;
   films: number;
+  existing?: boolean;
+}
+
+function mockChainName(chain: string, slug: string): string {
+  if (chain === 'toho') return `TOHO Cinemas ${slug}`;
+  if (chain === 'parks') return `Parks Cinema ${slug}`;
+  const pretty = slug.charAt(0).toUpperCase() + slug.slice(1);
+  return `AEON Cinema ${pretty}`;
 }
 
 export async function validateCinemaUrl(url: string): Promise<ValidateResult> {
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 500));
-    const m = url.match(/aeoncinema\.com\/wm\/([a-z0-9_-]+)/i);
-    if (!m) throw new Error('Could not read a cinema slug from that URL.');
-    const slug = m[1].toLowerCase();
-    if (getMockCinemas().some((c) => c.id === slug)) {
-      throw new Error('That cinema is already added.');
+    const parsed = parseCinemaUrl(url);
+    if (!parsed) {
+      throw new Error('Unsupported URL — paste an AEON, TOHO, or Parks Cinema schedule page.');
     }
-    const pretty = slug.charAt(0).toUpperCase() + slug.slice(1);
-    const sampleCount = MOCK_FILMS.filter((f) => f.cinema_id === slug).length;
-    return { ok: true, slug, name: `AEON Cinema ${pretty}`, films: sampleCount || 9 };
+    const sampleCount = MOCK_FILMS.filter((f) => f.cinema_id === parsed.id).length;
+    return {
+      ok: true,
+      ...parsed,
+      name: mockChainName(parsed.chain, parsed.slug),
+      films: sampleCount || 9,
+    };
   }
   const { data, error } = await supabase.functions.invoke('manage-cinema', {
     body: { action: 'validate', url },
@@ -199,10 +225,11 @@ export function useAddCinema() {
     mutationFn: async ({ url, name }: { url: string; name: string }) => {
       if (USE_MOCK) {
         await new Promise((r) => setTimeout(r, 700));
-        const slug = url.match(/aeoncinema\.com\/wm\/([a-z0-9_-]+)/i)?.[1]?.toLowerCase();
-        if (!slug) throw new Error('Could not read a cinema slug from that URL.');
-        addMockCinema(slug, name);
-        return { ok: true };
+        const parsed = parseCinemaUrl(url);
+        if (!parsed) {
+          throw new Error('Unsupported URL — paste an AEON, TOHO, or Parks Cinema schedule page.');
+        }
+        return { id: parsed.id, name };
       }
       const { data, error } = await supabase.functions.invoke('manage-cinema', {
         body: { action: 'add', url, name },
@@ -211,9 +238,10 @@ export function useAddCinema() {
         const body = await (error as any).context?.json?.().catch(() => null);
         throw new Error(body?.error ?? error.message);
       }
-      return data;
+      return { id: data.cinema.id as string, name: (data.cinema.name as string) || name };
     },
-    onSuccess: () => {
+    onSuccess: (added) => {
+      addMyCinema(added);
       void qc.invalidateQueries({ queryKey: ['cinemas'] });
       void qc.invalidateQueries({ queryKey: ['films'] });
     },

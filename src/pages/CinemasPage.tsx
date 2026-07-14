@@ -6,6 +6,10 @@ import { formatTimestampDate } from '@/lib/format';
 import { useCinemaFilms, useCinemas, useLastScrape } from '@/lib/queries';
 import type { Cinema } from '@/lib/types';
 
+function shortName(name: string): string {
+  return name.replace(/^AEON Cinema /, 'AEON ').replace(/^TOHO Cinemas /, 'TOHO ');
+}
+
 function CinemaTab({
   cinema,
   active,
@@ -19,7 +23,7 @@ function CinemaTab({
   const updated = scrapeQ.data ? formatTimestampDate(scrapeQ.data.started_at) : '—';
   return (
     <button className={`cinema-tab${active ? ' active' : ''}`} onClick={onSelect}>
-      <span>{cinema.name.replace(/^AEON Cinema /, 'AEON ')}</span>
+      <span>{shortName(cinema.name)}</span>
       <span className="updated">Updated {updated}</span>
     </button>
   );
@@ -51,27 +55,23 @@ export function CinemasPage() {
 
   if (!cinemas.length) {
     return (
-      <>
-        <header className="page-head">Cinemas</header>
-        <div className="centered">
-          <button className="empty-add" onClick={() => navigate('/add')} aria-label="Add a cinema">
-            <iconify-icon icon="solar:add-circle-linear" />
-          </button>
-          <div className="empty-headline">Add a cinema to get movies</div>
-          <div className="empty-sub">
-            Paste an AEON schedule link — films, showtimes and ENG/日本 tags show up here.
-          </div>
+      <div className="centered">
+        <button className="empty-add" onClick={() => navigate('/add')} aria-label="Add a cinema">
+          <iconify-icon icon="solar:add-circle-linear" />
+        </button>
+        <div className="empty-headline">Add a cinema to get movies</div>
+        <div className="empty-sub">
+          Paste a cinema schedule link — films, showtimes and ENG/日本語 tags show up here.
         </div>
-      </>
+      </div>
     );
   }
 
   const films = filmsQ.data;
+  const selectedCinema = cinemas.find((c) => c.id === selectedId);
 
   return (
     <>
-      <header className="page-head">Cinemas</header>
-
       <div className="cinema-tabs">
         {cinemas.map((c) => (
           <CinemaTab
@@ -101,7 +101,7 @@ export function CinemasPage() {
               <div className="empty-sub">Nothing on the schedule right now.</div>
             )}
             {films.now_showing.map((f) => (
-              <FilmCard key={f.id} film={f} />
+              <FilmCard key={f.id} film={f} cinemaName={selectedCinema?.name} />
             ))}
 
             {films.upcoming.length > 0 && (

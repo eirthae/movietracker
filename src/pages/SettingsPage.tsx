@@ -62,7 +62,7 @@ export function SettingsPage() {
             </div>
             <div className="settings-row">
               <span className="grow">Data source</span>
-              <span className="value">AEON Cinema</span>
+              <span className="value">AEON · TOHO · Parks</span>
             </div>
           </div>
         </section>
