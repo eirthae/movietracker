@@ -38,6 +38,7 @@ button {
 .shell {
   max-width: 480px;
   margin: 0 auto;
+  height: 100vh; /* fallback for any engine without dvh */
   height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -482,9 +483,10 @@ button {
 
 .tabbar {
   display: flex;
+  flex-shrink: 0;
   border-top: 1px solid var(--border);
   background: var(--bg);
-  padding: 8px 0 max(4px, env(safe-area-inset-bottom));
+  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
 }
 
 .tabbar-item {

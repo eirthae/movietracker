@@ -4,6 +4,16 @@ All notable changes to Cinema Tracker are documented here. Data-model and
 data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
 [docs/SPEC.md](docs/SPEC.md).
 
+## [2.1.1] — 2026-07-14
+
+### Fixed
+- **Bottom tab bar (Cinemas / Settings) missing in the installed app.**
+  `viewport-fit=cover` made the standalone PWA draw edge-to-edge behind the
+  Android system navigation bar; on nav styles where the safe-area inset is 0,
+  the tab bar ended up underneath it. Dropped `viewport-fit=cover` so the
+  layout stays within the safe area, gave the tab bar `flex-shrink: 0` and a
+  larger minimum bottom padding. Reinstall (or refresh) to pick it up.
+
 ## [2.1.0] — 2026-07-14
 
 ### Added
