@@ -4,6 +4,13 @@ All notable changes to Cinema Tracker are documented here. Data-model and
 data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
 [docs/SPEC.md](docs/SPEC.md).
 
+## [2.1.2] — 2026-07-14
+
+### Changed
+- Tapping an already-selected showtime now **deselects** it — the Add to
+  Google Calendar button disappears with it. (Tapping a different time still
+  just moves the selection.)
+
 ## [2.1.1] — 2026-07-14
 
 ### Fixed

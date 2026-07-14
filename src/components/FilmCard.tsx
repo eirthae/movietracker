@@ -40,6 +40,13 @@ export function FilmCard({
     setTime(null);
   };
 
+  // Tap a time to select it (reveals the calendar button); tap it again to
+  // deselect (button disappears).
+  const toggleTime = (t: ShowTime) =>
+    setTime((prev) =>
+      prev && prev.time === t.time && prev.language === t.language ? null : t,
+    );
+
   return (
     <article className="card">
       <div className="card-main">
@@ -64,7 +71,7 @@ export function FilmCard({
           {open && (
             <>
               <DateChips dates={dates} selected={date} onSelect={selectDate} />
-              <TimeChips times={times} selected={time} onSelect={setTime} />
+              <TimeChips times={times} selected={time} onSelect={toggleTime} />
               {date && time && (
                 <AddToCalendar film={film} cinemaName={cinemaName} date={date} time={time} />
               )}
