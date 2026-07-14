@@ -1,5 +1,8 @@
 # Cinema Tracker
 
+**Live app: <https://eirthae.github.io/movietracker/>** (auto-deployed from
+`main` via GitHub Pages)
+
 A personal, mobile-first **web app** that tracks what's playing at AEON
 cinemas in Japan, focused on **English-language availability** — answering
 "can I watch this in English, and when?" Add any AEON cinema by URL, pick a

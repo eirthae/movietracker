@@ -4,6 +4,18 @@ All notable changes to Cinema Tracker are documented here. Data-model and
 data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
 [docs/SPEC.md](docs/SPEC.md).
 
+## [2.0.2] — 2026-07-14
+
+### Added
+- **Live hosting on GitHub Pages** — the app now deploys automatically to
+  <https://eirthae.github.io/movietracker/> on every push to `main`
+  (`.github/workflows/deploy.yml`; Supabase URL/key come from repo Actions
+  variables). Includes an SPA fallback so deep links like `/film/…` work.
+
+### Changed
+- Router uses Vite's base URL so the app works under the `/movietracker/`
+  path; PWA manifest paths made relative for the same reason.
+
 ## [2.0.1] — 2026-07-14
 
 ### Fixed
