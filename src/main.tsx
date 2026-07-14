@@ -8,6 +8,13 @@ import { PrefsProvider } from './lib/prefs';
 import './styles/tokens.css';
 import './styles/app.css';
 
+// Register the (no-op) service worker so browsers offer "Install app".
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
+  });
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

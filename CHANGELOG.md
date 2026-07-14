@@ -4,6 +4,15 @@ All notable changes to Cinema Tracker are documented here. Data-model and
 data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
 [docs/SPEC.md](docs/SPEC.md).
 
+## [2.0.3] — 2026-07-14
+
+### Added
+- **Installable as an app** ("Install app" / richer Add to Home screen on
+  Android): PNG icons (192/512 + maskable, `public/icon-*.png`) and a minimal
+  no-op service worker (`public/sw.js`) — the two things Chrome requires
+  before offering a real install. On iPhone it's still Safari → Share →
+  Add to Home Screen (Apple never prompts).
+
 ## [2.0.2] — 2026-07-14
 
 ### Added
