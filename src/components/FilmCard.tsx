@@ -26,9 +26,14 @@ export function FilmCard({
   cinemaName?: string;
 }) {
   const { primary, secondary } = displayTitle(film);
-  const dates = useMemo(() => screeningDates(film), [film]);
   const today = todayJst();
-  const defaultDate = dates.find((d) => d >= today) ?? dates[dates.length - 1] ?? null;
+  // Past dates are gone-forever screenings — hide them so the chip row
+  // starts at today instead of making the user scroll past a week of history.
+  const dates = useMemo(
+    () => screeningDates(film).filter((d) => d >= today),
+    [film, today],
+  );
+  const defaultDate = dates[0] ?? null;
 
   const [open, setOpen] = useState(true);
   const [date, setDate] = useState<string | null>(defaultDate);

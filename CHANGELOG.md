@@ -4,6 +4,17 @@ All notable changes to Cinema Tracker are documented here. Data-model and
 data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
 [docs/SPEC.md](docs/SPEC.md).
 
+## [2.1.3] — 2026-07-21
+
+### Changed
+- **Date chips start at today.** Past screening dates are hidden entirely, so
+  opening the app no longer requires scrolling through a week of history to
+  reach today; today is pre-selected.
+- **New app icon**: neon reel-to-reel tape recorder (purple reels, yellow
+  deck) on dark navy — favicon (SVG with glow) and installed-app icons
+  (192/512 PNG) redrawn to match. Installed apps may need a remove +
+  re-install to show the new icon immediately (Android caches launcher icons).
+
 ## [2.1.2] — 2026-07-14
 
 ### Changed
