@@ -4,6 +4,15 @@ All notable changes to Cinema Tracker are documented here. Data-model and
 data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
 [docs/SPEC.md](docs/SPEC.md).
 
+## [2.1.4] — 2026-07-21
+
+### Added
+- **Weekly auto-scrape is now self-contained**: migration
+  `20260721000000_weekly_scrape_cron.sql` schedules pg_cron (Sun 21:00 UTC =
+  Mon 06:00 JST) to invoke `scrape-cinemas` via pg_net — no dashboard cron
+  setup required. Until now the cron had never been configured, so data only
+  refreshed when a cinema was added (last full refresh had been Mon 14 Jul).
+
 ## [2.1.3] — 2026-07-21
 
 ### Changed
