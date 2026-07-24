@@ -1,27 +1,27 @@
 {
   "name": "Cinema Tracker",
   "short_name": "Cinema",
-  "description": "What's playing in English at your AEON cinemas",
+  "description": "What's playing in English at your cinemas",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#1F1E24",
-  "theme_color": "#1F1E24",
+  "background_color": "#20244A",
+  "theme_color": "#20244A",
   "icons": [
     {
-      "src": "./icon-192.png",
+      "src": "./icon-192-v2.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icon-512.png",
+      "src": "./icon-512-v2.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icon-512.png",
+      "src": "./icon-512-v2.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

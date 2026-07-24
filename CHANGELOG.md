@@ -4,6 +4,16 @@ All notable changes to Cinema Tracker are documented here. Data-model and
 data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
 [docs/SPEC.md](docs/SPEC.md).
 
+## [2.1.5] — 2026-07-21
+
+### Fixed
+- **Installed app still showed the old purple icon.** The neon reel-to-reel
+  PNGs were deployed in 2.1.3, but the manifest kept the same icon filenames —
+  and Android only re-downloads a PWA's icon when the manifest changes.
+  Icons renamed to `icon-192-v2.png` / `icon-512-v2.png`, favicon cache-busted,
+  and the splash background/theme colors now match the icon's dark blue.
+  Reinstall the app (or wait ~a day for Chrome's automatic update) to see it.
+
 ## [2.1.4] — 2026-07-21
 
 ### Added
