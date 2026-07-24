@@ -49,6 +49,23 @@ supabase/
 docs/             # SPEC.md, DATA.md
 ```
 
+## Continuing work from a new machine
+
+1. Install [Node.js](https://nodejs.org) (LTS), [git](https://git-scm.com),
+   and the [GitHub CLI](https://cli.github.com), then:
+   ```bash
+   git clone https://github.com/eirthae/movietracker
+   cd movietracker
+   npm install
+   gh auth login                                         # for pushes + releases
+   npx supabase login
+   npx supabase link --project-ref eisjffdxhbvophyaczbt  # asks for the DB password
+   ```
+2. Create `.env` from `.env.example` — the two values are in
+   [CLAUDE.md](CLAUDE.md) (they're client-safe/public).
+3. Open the folder in Claude Code — `CLAUDE.md` briefs it on the whole
+   project: architecture, standing rules, release process, and gotchas.
+
 ## Setup
 
 ### 1. Run the app
