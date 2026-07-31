@@ -119,8 +119,11 @@ Key modelling decisions:
 
 ## 4. Refresh cadence
 
-- **Weekly cron** (Supabase Dashboard → Integrations → Cron):
-  `0 21 * * 0` UTC = **Monday 06:00 JST**, targeting `scrape-cinemas`.
+- **Daily cron** (pg_cron inside the database,
+  `20260731000000_daily_scrape_cron.sql`): `0 21 * * *` UTC =
+  **06:00 JST every day**, invoking `scrape-cinemas` via pg_net. Daily (not
+  weekly) so a transient block from a cinema's bot protection self-heals
+  within 24h; fetches also retry 403/429/5xx with backoff.
   AEON's cinema week starts on... the schedule publishes about a week ahead;
   a Monday-morning pull captures the fresh week.
 - **On add:** `manage-cinema` scrapes a newly-added cinema immediately.

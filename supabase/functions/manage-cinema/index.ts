@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
         .from('scrape_log')
         .update({ finished_at: new Date().toISOString(), status: 'error', error_msg: msg })
         .eq('id', logRow?.id);
-      // The cinema row stays; the weekly cron will retry the scrape.
+      // The cinema row stays; the daily cron will retry the scrape.
       return json({ ok: true, cinema, films: 0, existing: false, scrapeError: msg });
     }
   }

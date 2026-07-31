@@ -99,7 +99,7 @@ export function AddCinemaPage() {
             autoCorrect="off"
             onChange={(e) => setUrl(e.target.value)}
           />
-          <span className="hint">AEON, TOHO, or Parks Cinema schedule page — refreshed every Monday</span>
+          <span className="hint">AEON, TOHO, or Parks Cinema schedule page — refreshed daily</span>
         </div>
 
         <div className="form-field">

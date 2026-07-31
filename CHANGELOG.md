@@ -4,6 +4,22 @@ All notable changes to Cinema Tracker are documented here. Data-model and
 data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
 [docs/SPEC.md](docs/SPEC.md).
 
+## [2.1.6] — 2026-07-31
+
+### Fixed
+- **Showtimes disappeared from the app.** The Jul 27 weekly scrape got a
+  transient HTTP 403 from AEON's bot protection (it briefly blocked
+  Supabase's datacenter IPs), so data aged out past the "date chips start at
+  today" horizon and no times rendered. Data refreshed (now through Aug 6).
+
+### Changed
+- **Scrape is now daily** (06:00 JST, migration
+  `20260731000000_daily_scrape_cron.sql`) instead of weekly — any single
+  blocked run self-heals within 24h, and mid-week advance tickets appear
+  sooner. Add-cinema hint text updated accordingly.
+- Adapter fetches now **retry transient 403/429/5xx** with backoff
+  (2s/8s/20s) before failing a run.
+
 ## [2.1.5] — 2026-07-21
 
 ### Fixed

@@ -67,7 +67,7 @@ Web app (Vite + React + TS)  ──reads──►  Supabase Postgres  ◄──w
 
 - Reads use the client-safe publishable key; RLS makes all tables read-only
   for it. All writes happen in Edge Functions with the service-role key.
-- Weekly cron: `0 21 * * 0` UTC = Monday 06:00 JST.
+- Daily cron: `0 21 * * *` UTC = 06:00 JST (pg_cron in the DB).
 - Theming: GitLab brand palette as CSS variables (see `src/styles/tokens.css`),
   dark + light, system-following by default.
 

@@ -22,7 +22,7 @@ Docs: [SPEC](docs/SPEC.md) · [DATA](docs/DATA.md) · [CHANGELOG](CHANGELOG.md)
 
 ```
 Web app (browser)  ──reads──►  Supabase Postgres  ◄──writes──  Edge Functions
-  Cinemas / Detail /             cinemas, films,               scrape-cinemas (weekly cron)
+  Cinemas / Detail /             cinemas, films,               scrape-cinemas (daily cron)
   Settings / Add Cinema          screenings, scrape_log        manage-cinema  (validate/add)
         │                                                           │ fetch JSON
         ▼                                                           ▼
@@ -100,10 +100,10 @@ npx supabase functions deploy manage-cinema
 npx supabase functions invoke scrape-cinemas --no-verify-jwt   # first data pull
 ```
 
-### 4. Schedule the weekly scrape
+### 4. Scraping schedule
 
-Dashboard → Integrations → **Cron** → new job, `0 21 * * 0` (Mon 06:00 JST),
-target the `scrape-cinemas` function. (See `supabase/functions/README.md`.)
+Nothing to set up: `npx supabase db push` installs a pg_cron job that runs
+`scrape-cinemas` **daily at 06:00 JST**. (See `supabase/functions/README.md`.)
 
 ### 5. Deploy the app (optional)
 

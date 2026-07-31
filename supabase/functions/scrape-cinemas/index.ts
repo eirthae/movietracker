@@ -1,5 +1,5 @@
 /**
- * scrape-cinemas — weekly cron + manual invoke.
+ * scrape-cinemas — daily cron + manual invoke.
  *
  * Fetches every cinema's schedule via its chain adapter (AEON / TOHO / Parks),
  * upserts films and screenings, and logs each run. Each cinema is isolated in

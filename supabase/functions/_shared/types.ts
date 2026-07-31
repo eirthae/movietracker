@@ -47,8 +47,37 @@ export interface ChainAdapter {
 export const UA =
   'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36';
 
+/**
+ * Fetch with retries. Cinema sites sit behind bot protection that sometimes
+ * 403s datacenter IPs transiently (AEON did exactly this to the Jul 27 cron
+ * run, costing a week of data) — so retry blockish/transient statuses with
+ * backoff before giving up.
+ */
+async function fetchWithRetry(url: string): Promise<Response> {
+  const retryable = new Set([403, 408, 429, 500, 502, 503, 504]);
+  const delays = [2000, 8000, 20000];
+  let last: Response | null = null;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': UA,
+          'Accept': 'application/json, text/html;q=0.9, */*;q=0.8',
+          'Accept-Language': 'ja,en;q=0.8',
+        },
+      });
+      if (res.ok || !retryable.has(res.status)) return res;
+      last = res;
+    } catch (e) {
+      if (attempt >= delays.length) throw e;
+    }
+    if (attempt >= delays.length) return last!;
+    await new Promise((r) => setTimeout(r, delays[attempt]));
+  }
+}
+
 export async function getJson(url: string): Promise<any> {
-  const res = await fetch(url, { headers: { 'User-Agent': UA } });
+  const res = await fetchWithRetry(url);
   if (!res.ok) throw new Error(`fetch ${url} -> HTTP ${res.status}`);
   return await res.json();
 }
@@ -56,7 +85,7 @@ export async function getJson(url: string): Promise<any> {
 /** Fetch text with encoding sniffing: strict UTF-8 first, Shift_JIS fallback
  * (Japanese cinema sites mix both, sometimes across pages of one site). */
 export async function getText(url: string): Promise<string> {
-  const res = await fetch(url, { headers: { 'User-Agent': UA } });
+  const res = await fetchWithRetry(url);
   if (!res.ok) throw new Error(`fetch ${url} -> HTTP ${res.status}`);
   const buf = await res.arrayBuffer();
   try {

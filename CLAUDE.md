@@ -38,7 +38,7 @@ Single owner (GitHub: `eirthae`), shared with friends as a PWA.
 ```
 React app (Vite, src/) ──reads──► Supabase Postgres ◄──writes── Edge Functions (Deno)
    Pages: Cinemas / Settings /       cinemas, films,              scrape-cinemas (pg_cron,
-   Add Cinema (no detail page)       screenings, scrape_log       Mon 06:00 JST) and
+   Add Cinema (no detail page)       screenings, scrape_log       daily 06:00 JST) and
    my-cinemas list in localStorage                                manage-cinema (validate/add)
                                                                      │ per-chain adapters
                                                                      ▼
@@ -80,8 +80,10 @@ npx supabase functions deploy scrape-cinemas --use-api   # --use-api: no Docker 
 npx supabase functions deploy manage-cinema --use-api
 ```
 
-- Weekly scrape is scheduled **inside the DB** (pg_cron migration
-  `20260721000000_weekly_scrape_cron.sql`) — no dashboard cron.
+- Scrape runs **daily 06:00 JST**, scheduled **inside the DB** (pg_cron
+  migration `20260731000000_daily_scrape_cron.sql`) — no dashboard cron.
+  Fetches retry transient 403/5xx (AEON's bot protection blocks datacenter
+  IPs occasionally; a weekly cadence once cost a full week of data).
 - Manual refresh: POST the `scrape-cinemas` function URL with the publishable
   key as `apikey`/`Bearer` (verify_jwt is off).
 - ⚠️ Any **new table** needs explicit `GRANT`s to `anon, authenticated,
