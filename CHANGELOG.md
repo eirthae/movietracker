@@ -4,6 +4,25 @@ All notable changes to Cinema Tracker are documented here. Data-model and
 data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
 [docs/SPEC.md](docs/SPEC.md).
 
+## [2.1.7] — 2026-07-31
+
+### Fixed
+- **Home-screen icon clipping.** Android crops the maskable icon to a
+  circle/squircle (only the inner ~80% is safe), and we were feeding it the
+  full-frame art — the reels got cut off. There's now a dedicated
+  `icon-maskable-v3.png` with the artwork scaled to 72% on the brand navy;
+  full-frame `icon-*-v3.png` remain for regular contexts. Reinstall (or wait
+  ~a day) to see it.
+
+### Added
+- **Unit tests** (vitest, 41 tests): language detection (字幕/SUB/吹替),
+  title cleanup, Google Calendar URL building (durations, midnight/year
+  rollover, JST pinning), cinema-URL parsing for all three chains, date
+  formatting, and film derivations (mixed-language cards, title choice,
+  time merging). CI now runs them before every deploy (`npm test`).
+- `scripts/make-icons.mjs` — regenerates all PWA icons from `public/icon.svg`
+  (sharp); bump the `-vN` suffix when art changes so phones re-download.
+
 ## [2.1.6] — 2026-07-31
 
 ### Fixed
