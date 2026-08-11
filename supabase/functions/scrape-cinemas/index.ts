@@ -61,5 +61,19 @@ Deno.serve(async () => {
     }
   }
 
-  return Response.json({ ok: true, results });
+  // Drop anything that has aged out of the app's today-onward horizon. Runs
+  // unconditionally: a cinema whose fetch keeps failing keeps its last-known
+  // rows, and those are dead weight the moment their dates pass — nothing else
+  // would ever remove them (AEON's Aug 1-11 outage left 333 such screenings).
+  let purged: unknown = null;
+  try {
+    const { data, error: purgeErr } = await supabase.rpc('purge_expired_data');
+    if (purgeErr) throw purgeErr;
+    purged = data;
+  } catch (e) {
+    // Never fail a good scrape over housekeeping; next run retries.
+    purged = { error: e instanceof Error ? e.message : JSON.stringify(e) };
+  }
+
+  return Response.json({ ok: true, results, purged });
 });

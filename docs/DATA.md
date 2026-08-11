@@ -96,7 +96,9 @@ future TMDB enrichment step; today they only show in mock data.
 Migration: `supabase/migrations/20260713000000_web_rebuild.sql`
 
 Migrations since: `20260714000000_data_api_grants.sql` (Data API GRANTs),
-`20260714100000_multi_chain.sql` (chain/slug columns).
+`20260714100000_multi_chain.sql` (chain/slug columns),
+`20260811000000_shift_scrape_off_rebuild_window.sql` (cron → 07:15 JST),
+`20260811010000_purge_expired_data.sql` (`purge_expired_data()`, see §5).
 
 ```
 cinemas      id (pk: 'utazu', 'toho-032', 'parks-namba') · chain · slug
@@ -119,7 +121,7 @@ Key modelling decisions:
 - **The DB is a shared catalogue; cinema lists are per device.** Every user of
   the app reads the same rows, and a cinema is scraped once regardless of how
   many people follow it. Which cinemas show as tabs lives in each browser's
-  `ct.myCinemas` (see §5).
+  `ct.myCinemas` (see §6).
 - **Language lives on screenings**, one row per (film, date, language). A
   film's headline badge (ENG/日本) is derived client-side: English if *any*
   screening is English.
@@ -162,12 +164,37 @@ Key modelling decisions:
   as an error, because `persistCinema` deletes anything not in the current
   run — a source mid-rebuild or an upstream shape change would otherwise wipe
   a working cinema. The run fails, the log records it, yesterday's data stays.
+
+## 5. Retention
+
+A successful scrape mirrors its source exactly (`persistCinema` deletes films
+absent from the run and replaces surviving films' screenings wholesale), and
+the sources only publish today-forward — so expired rows normally never
+accumulate. They do when a scrape **fails**: that cinema keeps its last-known
+rows, and once those dates pass they are invisible in the app (date chips
+start at today) but still stored. AEON's Aug 1–11 outage left 127 dead
+screenings on `utazu` and 206 on `ayagawa`.
+
+`purge_expired_data()` closes that gap. `scrape-cinemas` calls it at the end of
+every run, unconditionally, and reports the counts in its response:
+
+1. `screenings` dated before today (JST — same horizon as `todayJst()`),
+2. `films` left with no screenings (a finished run; adapters never emit a
+   film with zero screenings, so this can't catch a live one),
+3. `scrape_log` rows older than 90 days — a generous window, since it's the
+   diagnostic trail that identified the AEON outage.
+
+It is `security definer` with `execute` revoked from `anon`/`authenticated`
+and granted only to `service_role`: the publishable key that ships in the
+browser bundle must never reach a delete. Failures are swallowed so
+housekeeping can't fail an otherwise-good scrape. Deleting a cinema row
+cascades to its films and screenings (FKs), so removals need no cleanup.
 - **On add:** `manage-cinema` scrapes a newly-added cinema immediately.
 - **Manual:** invoke `scrape-cinemas` from the dashboard or CLI any time.
 - The app itself never scrapes; it only reads Postgres (React Query,
   5-min staleTime, refetch on focus).
 
-## 5. Client-side storage (privacy)
+## 6. Client-side storage (privacy)
 
 Nothing personal is stored server-side. The browser's localStorage holds only:
 
@@ -183,7 +210,7 @@ template URL (`calendar.google.com/calendar/render?action=TEMPLATE&…`) in the
 user's own session. The only data in that URL is the event itself — film
 title, time, cinema name, and the AEON link.
 
-## 6. Mock data
+## 7. Mock data
 
 With no `.env` (or with `?mock` in the URL) the app runs without a backend
 using `src/lib/mock.ts`. It starts with zero cinemas, like a fresh install;

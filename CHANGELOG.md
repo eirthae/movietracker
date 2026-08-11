@@ -41,6 +41,16 @@ data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
 ### Added
 - `jstStamp()` in `_shared/types.ts` (+3 tests) — the JST `yyyyMMddHHmm` /
   `yyyyMMddHH` stamp behind the AEON cache-buster.
+- **Expired data is now purged** (`purge_expired_data()`, migration
+  `20260811010000_purge_expired_data.sql`), called at the end of every scrape
+  run whether or not the cinemas fetched cleanly. A successful scrape already
+  mirrors its source, so this exists for the failure case: a cinema that keeps
+  erroring kept its last-known rows forever, and once their dates passed they
+  were invisible in the app but still in Postgres — AEON's Aug 1–11 outage
+  left 333 such screenings. Drops screenings dated before today (JST), then
+  films left with none, and prunes `scrape_log` past 90 days. `security
+  definer` with execute revoked from `anon`/`authenticated`, so the
+  publishable key can never reach a delete.
 
 ## [2.1.7] — 2026-07-31
 
