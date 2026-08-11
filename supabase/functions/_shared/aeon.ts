@@ -5,11 +5,23 @@
  * widget that loads clean JSON from theater.aeoncinema.com. We hit that JSON
  * directly — no HTML scraping.
  *
- *   schedule:  /schedule/v2/data/{slug}/schedule.json
+ *   schedule:  /schedule/v2/data/{slug}/schedule.json?v={yyyyMMddHHmm}
  *              -> { "YYYYMMDD": { "<roomId>": [ screening, ... ] } }
- *   movies:    /schedule/v2/data/__master/movies.json   (shared, ~4MB)
+ *   movies:    /schedule/v2/data/__master/movies.json?v={yyyyMMddHH} (shared, ~4MB)
  *              -> { "<identifier>": { name:{en,ja}, duration:'PT1H59M',
  *                                     thumbnailUrl, ... } }
+ *
+ * ⚠️ The `?v=` stamp is NOT optional. These objects sit in S3 behind CloudFront
+ * with `Expires: +31 days`, and the distribution keys its cache on the `v`
+ * query param only (any other param — `_dc`, none at all — collapses onto one
+ * cache entry). Fetching the bare URL therefore returns whatever build that
+ * edge POP happened to cache, which can be a month old: on 2026-08-11 the bare
+ * URL still served the Jul 31 build, whose last screening date was Aug 6, so
+ * every showtime had aged past the app's today-onward date horizon and films
+ * rendered as posters with no times. The bare URL is also the one AEON
+ * deletes/replaces during its 06:00 JST rebuild, which is where the daily
+ * cron's "HTTP 403" errors came from — both symptoms, one missing param.
+ * Mirror AEON's own widget: minute granularity for schedules, hour for movies.
  */
 import {
   type ChainAdapter,
@@ -21,19 +33,25 @@ import {
   detectLanguage,
   FilmBucketMap,
   getJson,
+  jstStamp,
   UA,
 } from './types.ts';
 
 const BASE = 'https://theater.aeoncinema.com';
 
+/** Schedule endpoint for a slug, cache-busted (see the `?v=` note above). */
+function scheduleUrl(slug: string): string {
+  return `${BASE}/schedule/v2/data/${slug}/schedule.json?v=${jstStamp('minute')}`;
+}
+
 export async function fetchMoviesMaster(): Promise<Record<string, any>> {
-  return await getJson(`${BASE}/schedule/v2/data/__master/movies.json`);
+  return await getJson(
+    `${BASE}/schedule/v2/data/__master/movies.json?v=${jstStamp('hour')}`,
+  );
 }
 
 async function cinemaExists(slug: string): Promise<boolean> {
-  const res = await fetch(`${BASE}/schedule/v2/data/${slug}/schedule.json`, {
-    headers: { 'User-Agent': UA },
-  });
+  const res = await fetch(scheduleUrl(slug), { headers: { 'User-Agent': UA } });
   return res.ok;
 }
 
@@ -68,7 +86,7 @@ function jstTime(utcIso: string): string {
 }
 
 async function fetchFilms(slug: string, _url: string, ctx: ScrapeContext): Promise<ParsedFilm[]> {
-  const schedule = await getJson(`${BASE}/schedule/v2/data/${slug}/schedule.json`);
+  const schedule = await getJson(scheduleUrl(slug));
   const movies = ctx.aeonMovies ?? (ctx.aeonMovies = await fetchMoviesMaster());
   const sourceUrl = `https://cinema.aeoncinema.com/wm/${slug}/`;
 
@@ -112,7 +130,7 @@ async function validate(slug: string): Promise<ValidationResult> {
   if (!(await cinemaExists(slug))) {
     throw new Error('No AEON schedule found for that URL.');
   }
-  const schedule = await getJson(`${BASE}/schedule/v2/data/${slug}/schedule.json`);
+  const schedule = await getJson(scheduleUrl(slug));
   const ids = new Set<string>();
   for (const [dateKey, rooms] of Object.entries<any>(schedule)) {
     if (!/^\d{8}$/.test(dateKey)) continue;

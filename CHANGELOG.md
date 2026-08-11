@@ -4,6 +4,44 @@ All notable changes to Cinema Tracker are documented here. Data-model and
 data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
 [docs/SPEC.md](docs/SPEC.md).
 
+## [2.1.8] — 2026-08-11
+
+### Fixed
+- **Showtimes disappeared again — real root cause this time.** AEON's schedule
+  JSON sits in S3 behind CloudFront with a 31-day `Expires`, and the
+  distribution keys its cache on the `v` query param *only*. We were fetching
+  the bare URL, so we got whatever build that edge POP had cached: on Aug 11
+  that was still the **Jul 31** build, whose last screening date was Aug 6 —
+  every showtime had aged past the app's today-onward date horizon, leaving
+  posters with no times. Adapters now stamp `?v=` the way AEON's own widget
+  does (minute granularity for schedules, hour for the movie master), so every
+  fetch gets the live build. Utazu went from a frozen Jul 31–Aug 6 window to
+  Aug 11–22.
+  - The v2.1.6 "transient 403 from bot protection" diagnosis was wrong, which
+    is why it came back. The same missing param caused those 403s: the bare
+    URL is the object AEON deletes and replaces during its ~06:00 JST rebuild,
+    which is exactly when the daily cron ran. Every AEON cinema failed at
+    21:00 UTC for 11 straight days while TOHO and Parks succeeded in the same
+    run, and manual invokes at any other hour worked.
+- **TOHO cards showed no posters.** The schedule API's `thumbnail` field is an
+  empty string for every title (all 36 films had a null `poster_url`). Posters
+  now come from TOHO's now-showing/coming-soon movie masters, joined on
+  `mcode` — 33 of 36 films now have art (the rest are re-releases and event
+  screenings absent from both masters, which keep the placeholder).
+
+### Changed
+- **Scrape moved to 07:15 JST** (`20260811000000_shift_scrape_off_rebuild_window.sql`),
+  clear of AEON's rebuild window. Defence in depth — the `?v=` fix is what
+  actually matters.
+- **A zero-film parse now fails the run** instead of persisting. `persistCinema`
+  deletes anything absent from the current run, so an empty result from a
+  source caught mid-rebuild would have silently wiped a working cinema; now the
+  error is logged and yesterday's data survives.
+
+### Added
+- `jstStamp()` in `_shared/types.ts` (+3 tests) — the JST `yyyyMMddHHmm` /
+  `yyyyMMddHH` stamp behind the AEON cache-buster.
+
 ## [2.1.7] — 2026-07-31
 
 ### Fixed

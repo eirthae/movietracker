@@ -14,13 +14,24 @@ Public JSON API — no HTML scraping:
 
 | Endpoint | Content |
 |---|---|
-| `https://theater.aeoncinema.com/schedule/v2/data/{slug}/schedule.json` | Per-cinema schedule: `{ "YYYYMMDD": { "<roomId>": [screening, …] } }` |
-| `https://theater.aeoncinema.com/schedule/v2/data/__master/movies.json` | Shared movie master (~4 MB, ~10k entries): `{ "<identifier>": { name:{en,ja}, duration:'PT1H59M', thumbnailUrl, … } }` |
+| `https://theater.aeoncinema.com/schedule/v2/data/{slug}/schedule.json?v={yyyyMMddHHmm}` | Per-cinema schedule: `{ "YYYYMMDD": { "<roomId>": [screening, …] } }` |
+| `https://theater.aeoncinema.com/schedule/v2/data/__master/movies.json?v={yyyyMMddHH}` | Shared movie master (~4 MB, ~10k entries): `{ "<identifier>": { name:{en,ja}, duration:'PT1H59M', thumbnailUrl, … } }` |
 | `https://www.aeoncinema.com/json/_theaters.json` | Facility index — cinema display names |
 
 A screening carries `name.ja/en` (title with 字幕/吹替/SUB/DUB prefix),
 `startDate`/`endDate` (UTC ISO — converted to JST), and
 `superEvent.workPerformed.identifier` → key into the movie master.
+
+> ⚠️ **The `?v=` stamp is mandatory.** These objects live in S3 behind
+> CloudFront with `Expires: +31 days`, and the distribution keys its cache on
+> the `v` query param *only* — any other param (`_dc=…`) or none at all
+> collapses onto a single cache entry that can be a month old, and client
+> `Cache-Control: no-cache` is ignored. On 2026-08-11 the bare URL still
+> served the Jul 31 build (last screening date Aug 6). AEON's own widget
+> stamps minute-granularity on schedules and hour-granularity on the movie
+> master; we mirror it via `jstStamp()` in `_shared/types.ts`. The bare URL is
+> also the object AEON deletes/replaces during its ~06:00 JST rebuild, which
+> is where the daily cron's `HTTP 403` errors came from.
 
 ### TOHO Cinemas (`chain = 'toho'`, slug = 3-digit site code)
 
@@ -37,6 +48,25 @@ NFKC; `hours` = runtime) with per-screen `showingStart` times (already JST).
 Language markers （字幕版）/（吹替版） are in the titles; each format variant
 (MX4D, 轟音上映…) is its own movie code → its own card. ⚠️ `showDay` in the
 response is an object, not a string — we date rows by the requested day.
+
+**Posters come from a separate pair of endpoints** — the schedule API's
+`thumbnail` field is an empty string for every title, which is why TOHO cards
+showed placeholders until v2.1.8:
+
+| Endpoint | Content |
+|---|---|
+| `https://hlo.tohotheater.jp/data_net/json/movie/TNPI3090.JSON` | Now-showing movie master |
+| `https://hlo.tohotheater.jp/data_net/json/movie/TNPI3080.JSON` | Coming-soon movie master |
+
+Both return `{ data: [ { mcode, sakuhinGazouNm, name, … } ] }`; the image is
+`https://www.tohotheater.jp/images_net/movie/{mcode}/{sakuhinGazouNm}` (the
+`hlo.` host 302s there, so we link the target directly). Join on the schedule
+entry's **`mcode`** (the work) rather than `code` (the screening version —
+IMAX/MX4D/dubbed variants each get their own `code`, one shared `mcode`).
+Fetched once per run and cached on `ScrapeContext`. Two caveats: TOHO
+publishes only 4:3 stills (640×480 / 480×360), not portrait key art, so they
+centre-crop into the 2:3 poster slot; and a handful of re-releases and event
+screenings appear in neither master, so they keep the placeholder.
 
 ### Parks Cinema / SMT (`chain = 'parks'`)
 
@@ -120,12 +150,18 @@ Key modelling decisions:
 ## 4. Refresh cadence
 
 - **Daily cron** (pg_cron inside the database,
-  `20260731000000_daily_scrape_cron.sql`): `0 21 * * *` UTC =
-  **06:00 JST every day**, invoking `scrape-cinemas` via pg_net. Daily (not
-  weekly) so a transient block from a cinema's bot protection self-heals
-  within 24h; fetches also retry 403/429/5xx with backoff.
-  AEON's cinema week starts on... the schedule publishes about a week ahead;
-  a Monday-morning pull captures the fresh week.
+  `20260811000000_shift_scrape_off_rebuild_window.sql`): `15 22 * * *` UTC =
+  **07:15 JST every day**, invoking `scrape-cinemas` via pg_net. Daily (not
+  weekly) so a single failed run self-heals within 24h; fetches also retry
+  403/429/5xx with backoff. The time matters: the previous 06:00 JST slot sat
+  inside AEON's nightly rebuild, when its schedule objects are briefly absent
+  from S3 and every AEON cinema 403s (11 consecutive days of it, while TOHO
+  and Parks succeeded in the same runs). The schedule publishes about a week
+  and a half ahead.
+- **Never persist an empty parse.** `scrape-cinemas` treats a zero-film result
+  as an error, because `persistCinema` deletes anything not in the current
+  run — a source mid-rebuild or an upstream shape change would otherwise wipe
+  a working cinema. The run fails, the log records it, yesterday's data stays.
 - **On add:** `manage-cinema` scrapes a newly-added cinema immediately.
 - **Manual:** invoke `scrape-cinemas` from the dashboard or CLI any time.
 - The app itself never scrapes; it only reads Postgres (React Query,

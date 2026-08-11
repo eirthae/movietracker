@@ -1,7 +1,7 @@
 /** Tests for the chain-shared helpers (language detection, title cleanup). */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { cleanTitle, dashDate, detectLanguage, normalize, padTime } from './types.ts';
+import { cleanTitle, dashDate, detectLanguage, jstStamp, normalize, padTime } from './types.ts';
 
 describe('detectLanguage', () => {
   it('detects 字幕 (subtitled) as english', () => {
@@ -65,5 +65,33 @@ describe('padTime', () => {
   it('zero-pads single-digit hours', () => {
     expect(padTime('8:15')).toBe('08:15');
     expect(padTime('19:15')).toBe('19:15');
+  });
+});
+
+describe('jstStamp', () => {
+  // Drives AEON's `?v=` cache-buster — without a changing value, CloudFront
+  // hands back a month-old schedule and every showtime ages out of the app.
+  it('formats JST as yyyyMMddHHmm / yyyyMMddHH', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-11T05:44:49Z')); // 14:44 JST
+    expect(jstStamp('minute')).toBe('202608111444');
+    expect(jstStamp('hour')).toBe('2026081114');
+    vi.useRealTimers();
+  });
+
+  it('rolls the date over at JST midnight, not UTC midnight', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-11T15:30:00Z')); // 00:30 JST on the 12th
+    expect(jstStamp('minute')).toBe('202608120030');
+    vi.useRealTimers();
+  });
+
+  it('changes between consecutive minutes', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-11T05:44:00Z'));
+    const first = jstStamp('minute');
+    vi.setSystemTime(new Date('2026-08-11T05:45:00Z'));
+    expect(jstStamp('minute')).not.toBe(first);
+    vi.useRealTimers();
   });
 });

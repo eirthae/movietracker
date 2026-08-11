@@ -40,6 +40,10 @@ Deno.serve(async () => {
       const adapter = adapterFor(cinema.chain);
       if (!adapter) throw new Error(`No adapter for chain '${cinema.chain}'`);
       const films = await adapter.fetchFilms(cinema.slug, cinema.schedule_url, ctx);
+      // persistCinema deletes anything not in this run, so an empty parse would
+      // silently wipe a working cinema (e.g. the source mid-rebuild, or a shape
+      // change upstream). Fail the run instead and keep yesterday's data.
+      if (!films.length) throw new Error('adapter returned 0 films — keeping existing data');
       const { filmCount, screeningCount } = await persistCinema(supabase, cinema.id, films);
 
       await supabase

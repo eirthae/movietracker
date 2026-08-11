@@ -80,10 +80,11 @@ npx supabase functions deploy scrape-cinemas --use-api   # --use-api: no Docker 
 npx supabase functions deploy manage-cinema --use-api
 ```
 
-- Scrape runs **daily 06:00 JST**, scheduled **inside the DB** (pg_cron
-  migration `20260731000000_daily_scrape_cron.sql`) — no dashboard cron.
-  Fetches retry transient 403/5xx (AEON's bot protection blocks datacenter
-  IPs occasionally; a weekly cadence once cost a full week of data).
+- Scrape runs **daily 07:15 JST**, scheduled **inside the DB** (pg_cron
+  migration `20260811000000_shift_scrape_off_rebuild_window.sql`) — no
+  dashboard cron. Not 06:00: that slot sits inside AEON's nightly rebuild,
+  when its schedule objects are briefly gone from S3 and every AEON cinema
+  403s. Fetches also retry 403/429/5xx with backoff.
 - Manual refresh: POST the `scrape-cinemas` function URL with the publishable
   key as `apikey`/`Bearer` (verify_jwt is off).
 - ⚠️ Any **new table** needs explicit `GRANT`s to `anon, authenticated,
@@ -98,6 +99,17 @@ npx supabase functions deploy manage-cinema --use-api
 - `gh` CLI is authenticated as `eirthae` (repo owner) for pushes/releases.
 
 ## Gotchas learned the hard way
+
+- **AEON data URLs need `?v={yyyyMMddHHmm}`.** Their CloudFront distribution
+  keys the cache on the `v` param only and the objects carry `Expires: +31
+  days`, so the bare URL can hand back a month-old schedule — a "successful"
+  scrape that silently writes expired showtimes. `_dc=` and `Cache-Control:
+  no-cache` do nothing. This masqueraded as "bot protection 403s" twice; see
+  CHANGELOG 2.1.8 and docs/DATA.md.
+- **TOHO posters aren't in the schedule API** (`thumbnail` is always `''`) —
+  they come from the TNPI3090/TNPI3080 movie masters, joined on `mcode`.
+- **A scrape that parses 0 films must fail, not persist.** `persistCinema`
+  deletes whatever isn't in the current run.
 
 - **PWA icons:** phones only re-download icons when the *manifest text*
   changes — changing icon art requires new filenames (currently

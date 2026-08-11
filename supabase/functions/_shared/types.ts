@@ -25,6 +25,8 @@ export interface ParsedFilm {
 /** Shared per-run cache (e.g. AEON's ~4MB movies master, fetched once). */
 export interface ScrapeContext {
   aeonMovies?: Record<string, any>;
+  /** TOHO mcode -> poster URL, from the chain-wide movie masters. */
+  tohoPosters?: Map<string, string>;
 }
 
 export interface ValidationResult {
@@ -127,6 +129,19 @@ export function normalize(s: string): string {
 
 export function todayJst(): string {
   return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * JST timestamp for cache-busting query params: 'yyyyMMddHHmm' ('minute') or
+ * 'yyyyMMddHH' ('hour'). AEON's own widget stamps its data URLs this way, and
+ * its CDN keys the cache on that param — see `?v=` in aeon.ts.
+ */
+export function jstStamp(granularity: 'hour' | 'minute'): string {
+  const stamp = new Date(Date.now() + 9 * 3600 * 1000)
+    .toISOString()
+    .slice(0, 16)
+    .replace(/[-:T]/g, ''); // yyyyMMddHHmm
+  return granularity === 'hour' ? stamp.slice(0, 10) : stamp;
 }
 
 /** today+n in JST as 'YYYYMMDD'. */
