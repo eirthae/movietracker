@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { ComingSoonCard, FilmCard } from '@/components/FilmCard';
-import { formatTimestampDate } from '@/lib/format';
+import { StaleNotice } from '@/components/StaleNotice';
+import { formatTimestampDate, scrapeFreshness } from '@/lib/format';
 import { useCinemaFilms, useCinemas, useLastScrape } from '@/lib/queries';
 import type { Cinema } from '@/lib/types';
 
@@ -21,10 +22,15 @@ function CinemaTab({
 }) {
   const scrapeQ = useLastScrape(cinema.id);
   const updated = scrapeQ.data ? formatTimestampDate(scrapeQ.data.started_at) : '—';
+  // Don't cry stale while the log is still loading.
+  const stale = !scrapeQ.isPending && scrapeFreshness(scrapeQ.data).stale;
   return (
     <button className={`cinema-tab${active ? ' active' : ''}`} onClick={onSelect}>
       <span>{shortName(cinema.name)}</span>
-      <span className="updated">Updated {updated}</span>
+      <span className={`updated${stale ? ' stale' : ''}`}>
+        {stale && <iconify-icon icon="solar:danger-triangle-linear" />}
+        Updated {updated}
+      </span>
     </button>
   );
 }
@@ -43,6 +49,7 @@ export function CinemasPage() {
   }, [cinemas, selectedId]);
 
   const filmsQ = useCinemaFilms(selectedId);
+  const selectedScrapeQ = useLastScrape(selectedId); // deduped with the tab's own query
   const [comingSoonOpen, setComingSoonOpen] = useState(true);
 
   if (cinemasQ.isLoading) {
@@ -96,6 +103,7 @@ export function CinemasPage() {
 
         {films && (
           <>
+            {!selectedScrapeQ.isPending && <StaleNotice lastScrape={selectedScrapeQ.data} />}
             <div className="section-title">Now Showing</div>
             {films.now_showing.length === 0 && (
               <div className="empty-sub">Nothing on the schedule right now.</div>

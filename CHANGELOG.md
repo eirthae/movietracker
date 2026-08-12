@@ -4,6 +4,18 @@ All notable changes to Cinema Tracker are documented here. Data-model and
 data-source details live in [docs/DATA.md](docs/DATA.md); the product spec is
 [docs/SPEC.md](docs/SPEC.md).
 
+## [2.1.9] — 2026-08-11
+
+### Added
+- **Stale-data warning.** Twice now a stopped scrape has looked like a broken
+  app rather than stale data, because the failure is invisible by design: date
+  chips start at today, so a dead scrape just drains days off the end until the
+  list empties. A cinema whose last *successful* scrape is 2+ days old (two
+  missed daily runs) now turns its "Updated …" tab label amber with a warning
+  icon and shows a banner above Now Showing — "Showtimes may be out of date.
+  Last refreshed Fri 31 Jul — 11 days ago." A cinema that has never scraped
+  successfully is flagged the same way. 8 new tests (52 total).
+
 ## [2.1.8] — 2026-08-11
 
 ### Fixed

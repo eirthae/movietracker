@@ -50,3 +50,39 @@ export function formatTimestampDate(iso: string): string {
 export function todayJst(): string {
   return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
+
+// ── Scrape freshness ─────────────────────────────────────────────────
+//
+// Stale data is silent by design: date chips start at today, so as a cinema's
+// last good scrape recedes its days drain off the end until the list empties.
+// Twice now that looked like "the app is broken" rather than "the scrape
+// stopped" (see CHANGELOG 2.1.6 / 2.1.8). The scrape runs daily, so anything
+// past two days means at least two consecutive failed runs — worth surfacing.
+
+export const STALE_AFTER_DAYS = 2;
+
+/** Whole days elapsed since an ISO timestamp; 0 = within the last 24h. */
+export function daysSince(iso: string, now: number = Date.now()): number {
+  const elapsed = now - new Date(iso).getTime();
+  return elapsed > 0 ? Math.floor(elapsed / 86_400_000) : 0;
+}
+
+/** 0 -> 'today', 1 -> 'yesterday', n -> 'N days ago'. */
+export function formatAge(days: number): string {
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  return `${days} days ago`;
+}
+
+/**
+ * Freshness of a cinema's last *successful* scrape. A null log means one has
+ * never succeeded, which is at least as bad as an old one — flag it too.
+ */
+export function scrapeFreshness(
+  lastScrape: { started_at: string } | null | undefined,
+  now: number = Date.now(),
+): { stale: boolean; days: number | null; age: string } {
+  if (!lastScrape) return { stale: true, days: null, age: 'never' };
+  const days = daysSince(lastScrape.started_at, now);
+  return { stale: days >= STALE_AFTER_DAYS, days, age: formatAge(days) };
+}

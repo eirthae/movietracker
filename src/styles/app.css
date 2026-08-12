@@ -99,6 +99,35 @@ button {
   color: var(--muted);
 }
 
+.cinema-tab .updated.stale {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--warning);
+}
+
+/* Stale-data warning — see StaleNotice.tsx */
+.stale-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  background: var(--warning-subtle);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.stale-notice iconify-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--warning);
+  font-size: 16px;
+}
+
 .add-cinema-btn {
   display: flex;
   align-items: center;

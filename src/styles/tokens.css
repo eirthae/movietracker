@@ -14,6 +14,8 @@
   --muted: #6e6d7a;
   --border: #3d3c48;
   --error: #c24040;
+  --warning: #d99a2b;
+  --warning-subtle: #3a2f1a;
   --success: #2da160;
   --badge-eng: #2da160;
   --badge-ja: #525160;
@@ -34,6 +36,8 @@
   --muted: #a8a7b3;
   --border: #e0dff0;
   --error: #b03030;
+  --warning: #9a6a10;
+  --warning-subtle: #fdf3dd;
   --success: #2da160;
   --badge-eng: #2da160;
   --badge-ja: #8a8998;
